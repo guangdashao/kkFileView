@@ -33,6 +33,36 @@
     <div class="page-header">
         <h1>版本发布记录</h1>
     </div>
+	   <div class="panel panel-success">
+        <div class="panel-heading">
+            <h3 class="panel-title">2025年12月25日，v5.0版本</h3>
+        </div>
+        <div class="panel-body">
+            <div>
+                <h4>优化</h4>
+                1. 优化 OFD 移动端预览 页面不自适应  <br>
+                2. 更新 xlsx 前端解析组件，加速解析速度  <br>
+                3. 升级 CAD 组件  <br>
+                4. office 功能调整，支持批注、转换页码限制、生成水印等功能  <br>
+                5. 升级 markdown 组件  <br>
+                6. 升级 dcm 解析组件  <br>
+                7. 升级 PDF.JS 解析组件  <br>
+                8. 更换视频播放插件为 ckplayer  <br>
+                9. tif 解析更加智能化，支持被修改的图片格式  <br>
+                10. 针对大小文本文件检测字符编码的正确率，处理并发隐患  <br>
+                11. 重构下载文件的代码，新增通用的文件服务器认证访问的设计  <br>
+                12. 更新 bootstrap 组件，并精简掉不需要的文件  <br>
+                13. 更新 epub 版本，优化 epub 显示效果  <br>
+                14. 解决定时清除缓存时，对于多媒体类型文件，只删除了磁盘缓存文件  <br>
+                15. 自动检测已安装 Office 组件，增加 LibreOffice 7.5 & 7.6 版本默认路径  <br>
+                16. 修改 drawio 默认为预览模式  <br>
+                17. 新增 PDF 线程管理、超时管理、内存缓存管理，更新 PDF 解析组件版本  <br>
+                18. 优化 Dockerfile，支持真正的跨平台构建镜像  <br>
+                <br>
+            </div>
+        </div>
+    </div>
+	
      <div class="panel panel-success">
         <div class="panel-heading">
             <h3 class="panel-title">2025年01月16日，v4.4.0版本</h3>

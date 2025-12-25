@@ -4,11 +4,10 @@ import cn.keking.config.ConfigConstants;
 import cn.keking.model.FileAttribute;
 import cn.keking.model.ReturnResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.mola.galimatias.GalimatiasParseException;
 import org.apache.commons.io.FileUtils;
-import org.apache.hc.client5.http.classic.HttpClient;
-import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
-import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
@@ -22,12 +21,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 
-import static cn.keking.utils.KkFileUtils.isFtpUrl;
-import static cn.keking.utils.KkFileUtils.isHttpUrl;
+import static cn.keking.utils.KkFileUtils.*;
 
 /**
  * @author yudian-it
@@ -39,6 +39,7 @@ public class DownloadUtils {
     private static final String URL_PARAM_FTP_USERNAME = "ftp.username";
     private static final String URL_PARAM_FTP_PASSWORD = "ftp.password";
     private static final String URL_PARAM_FTP_CONTROL_ENCODING = "ftp.control.encoding";
+    private static final String URL_PARAM_FTP_PORT = "ftp.control.port";
     private static final RestTemplate restTemplate = new RestTemplate();
     private static  final HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -53,7 +54,6 @@ public class DownloadUtils {
         // 忽略ssl证书
         String urlStr = null;
         try {
-            SslUtils.ignoreSsl();
             urlStr = fileAttribute.getUrl().replaceAll("\\+", "%20").replaceAll(" ", "%20");
         } catch (Exception e) {
             logger.error("忽略SSL证书异常:", e);
@@ -90,17 +90,18 @@ public class DownloadUtils {
             if (!fileAttribute.getSkipDownLoad()) {
                 if (isHttpUrl(url)) {
                     File realFile = new File(realPath);
-                    factory.setConnectionRequestTimeout(2000);  //设置超时时间
-                    factory.setConnectTimeout(10000);
-                    factory.setReadTimeout(72000);
-                    HttpClient httpClient = HttpClientBuilder.create().setRedirectStrategy(new DefaultRedirectStrategy()).build();
-                    factory.setHttpClient(httpClient);  //加入重定向方法
+                    CloseableHttpClient httpClient = SslUtils.createHttpClientIgnoreSsl();
+                    factory.setHttpClient(httpClient);
                     restTemplate.setRequestFactory(factory);
                     RequestCallback requestCallback = request -> {
                         request.getHeaders().setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+                        WebUtils.applyBasicAuthHeaders(request.getHeaders(), fileAttribute);
                         String proxyAuthorization = fileAttribute.getKkProxyAuthorization();
                         if(StringUtils.hasText(proxyAuthorization)){
-                            Map<String,String>  proxyAuthorizationMap = mapper.readValue(proxyAuthorization, Map.class);
+                            Map<String, String> proxyAuthorizationMap = mapper.readValue(
+                                    proxyAuthorization,
+                                    TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class)
+                            );
                             proxyAuthorizationMap.forEach((key, value) -> request.getHeaders().set(key, value));
                         }
                     };
@@ -110,16 +111,19 @@ public class DownloadUtils {
                             return null;
                         });
                     }  catch (Exception e) {
-                            response.setCode(1);
-                            response.setContent(null);
-                            response.setMsg("下载失败:" + e);
-                            return response;
+                        response.setCode(1);
+                        response.setContent(null);
+                        response.setMsg("下载失败:" + e);
+                        return response;
                     }
                 } else if (isFtpUrl(url)) {
                     String ftpUsername = WebUtils.getUrlParameterReg(fileAttribute.getUrl(), URL_PARAM_FTP_USERNAME);
                     String ftpPassword = WebUtils.getUrlParameterReg(fileAttribute.getUrl(), URL_PARAM_FTP_PASSWORD);
                     String ftpControlEncoding = WebUtils.getUrlParameterReg(fileAttribute.getUrl(), URL_PARAM_FTP_CONTROL_ENCODING);
-                    FtpUtils.download(fileAttribute.getUrl(), realPath, ftpUsername, ftpPassword, ftpControlEncoding);
+                    String ftpport = WebUtils.getUrlParameterReg(realPath, URL_PARAM_FTP_PORT);
+                    FtpUtils.download(fileAttribute.getUrl(),ftpport, realPath, ftpUsername, ftpPassword, ftpControlEncoding);
+                } else if (isFileUrl(url)) { // 添加对file协议的支持
+                    handleFileProtocol(url, realPath);
                 } else {
                     response.setCode(1);
                     response.setMsg("url不能识别url" + urlStr);
@@ -138,9 +142,69 @@ public class DownloadUtils {
                 response.setMsg(e.getMessage());
             }
             return response;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
+
+    // 处理file协议的文件下载
+    private static void handleFileProtocol(URL url, String targetPath) throws IOException {
+        File sourceFile = new File(url.getPath());
+        if (!sourceFile.exists()) {
+            throw new FileNotFoundException("本地文件不存在: " + url.getPath());
+        }
+        if (!sourceFile.isFile()) {
+            throw new IOException("路径不是文件: " + url.getPath());
+        }
+
+        File targetFile = new File(targetPath);
+
+        // 判断源文件和目标文件是否是同一个文件（防止自身复制覆盖）
+        if (isSameFile(sourceFile, targetFile)) {
+            // 如果是同一个文件，直接返回，不执行复制操作
+            logger.info("源文件和目标文件相同，跳过复制: {}", sourceFile.getAbsolutePath());
+            return;
+        }
+
+        // 确保目标目录存在
+        File parentDir = targetFile.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+
+        // 复制文件
+        Files.copy(sourceFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    /**
+     * 判断两个文件是否是同一个文件
+     * 通过比较规范化路径来避免符号链接、相对路径等问题
+     */
+    private static boolean isSameFile(File file1, File file2) {
+        try {
+            // 使用规范化路径比较，可以处理符号链接、相对路径等情况
+            String canonicalPath1 = file1.getCanonicalPath();
+            String canonicalPath2 = file2.getCanonicalPath();
+
+            // 如果是Windows系统，忽略路径大小写
+            if (isWindows()) {
+                return canonicalPath1.equalsIgnoreCase(canonicalPath2);
+            }
+            return canonicalPath1.equals(canonicalPath2);
+        } catch (IOException e) {
+            // 如果获取规范化路径失败，使用绝对路径比较
+            logger.warn("无法获取文件的规范化路径，使用绝对路径比较: {}, {}", file1.getAbsolutePath(), file2.getAbsolutePath());
+
+            String absolutePath1 = file1.getAbsolutePath();
+            String absolutePath2 = file2.getAbsolutePath();
+
+            if (isWindows()) {
+                return absolutePath1.equalsIgnoreCase(absolutePath2);
+            }
+            return absolutePath1.equals(absolutePath2);
+        }
+    }
 
     /**
      * 获取真实文件绝对路径

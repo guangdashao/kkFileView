@@ -1,18 +1,24 @@
 package cn.keking.web.controller;
 
+import cn.keking.config.ConfigConstants;
 import cn.keking.model.FileAttribute;
 import cn.keking.service.FileHandlerService;
 import cn.keking.service.FilePreview;
 import cn.keking.service.FilePreviewFactory;
 import cn.keking.service.cache.CacheService;
 import cn.keking.service.impl.OtherFilePreviewImpl;
+import cn.keking.utils.FtpUtils;
 import cn.keking.utils.KkFileUtils;
+import cn.keking.utils.SslUtils;
 import cn.keking.utils.WebUtils;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import fr.opensagres.xdocreport.core.io.IOUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +30,7 @@ import org.springframework.ui.Model;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RequestCallback;
 import org.springframework.web.client.RestTemplate;
@@ -38,6 +45,8 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.keking.service.FilePreview.PICTURE_FILE_PREVIEW_PAGE;
+import static cn.keking.utils.KkFileUtils.isFtpUrl;
+import static cn.keking.utils.KkFileUtils.isHttpUrl;
 
 /**
  * @author yudian-it
@@ -45,8 +54,14 @@ import static cn.keking.service.FilePreview.PICTURE_FILE_PREVIEW_PAGE;
 @Controller
 public class OnlinePreviewController {
 
-    public static final String BASE64_DECODE_ERROR_MSG = "Base64解码失败，请检查你的 %s 是否采用 Base64 + urlEncode 双重编码了！";
     private final Logger logger = LoggerFactory.getLogger(OnlinePreviewController.class);
+    public static final String BASE64_DECODE_ERROR_MSG = "Base64解码失败，请检查你的 %s 是否采用 Base64 + urlEncode 双重编码了！";
+    private static final String ILLEGAL_ACCESS_MSG = "访问不合法：访问密码不正确";
+    private static final String INTERFACE_CLOSED_MSG = "接口关闭，禁止访问!";
+    private static final String URL_PARAM_FTP_USERNAME = "ftp.username";
+    private static final String URL_PARAM_FTP_PASSWORD = "ftp.password";
+    private static final String URL_PARAM_FTP_CONTROL_ENCODING = "ftp.control.encoding";
+    private static final String URL_PARAM_FTP_PORT = "ftp.control.port";
 
     private final FilePreviewFactory previewFactory;
     private final CacheService cacheService;
@@ -64,11 +79,18 @@ public class OnlinePreviewController {
     }
 
     @GetMapping( "/onlinePreview")
-    public String onlinePreview(String url, Model model, HttpServletRequest req) {
-
+    public String onlinePreview(@RequestParam String url,
+                                @RequestParam(required = false) String key,
+                                @RequestParam(required = false) String encryption,
+                                Model model,
+                                HttpServletRequest req) {
+        // 验证访问权限
+        if (WebUtils.validateKey(key)) {
+            return otherFilePreview.notSupportedFile(model, ILLEGAL_ACCESS_MSG);
+        }
         String fileUrl;
         try {
-            fileUrl = WebUtils.decodeUrl(url);
+            fileUrl = WebUtils.decodeUrl(url, encryption);
         } catch (Exception ex) {
             String errorMsg = String.format(BASE64_DECODE_ERROR_MSG, "url");
             return otherFilePreview.notSupportedFile(model, errorMsg);
@@ -85,10 +107,22 @@ public class OnlinePreviewController {
     }
 
     @GetMapping( "/picturesPreview")
-    public String picturesPreview(String urls, Model model, HttpServletRequest req) {
+    public String picturesPreview(@RequestParam String urls,
+                                  @RequestParam(required = false) String key,
+                                  @RequestParam(required = false) String encryption,
+                                  Model model,
+                                  HttpServletRequest req) {
+        // 1. 验证接口是否开启
+        if (!ConfigConstants.getPicturesPreview()) {
+            return otherFilePreview.notSupportedFile(model, INTERFACE_CLOSED_MSG);
+        }
+        //2. 验证访问权限
+        if (WebUtils.validateKey(key)) {
+            return otherFilePreview.notSupportedFile(model, ILLEGAL_ACCESS_MSG);
+        }
         String fileUrls;
         try {
-            fileUrls = WebUtils.decodeUrl(urls);
+            fileUrls = WebUtils.decodeUrl(urls, encryption);
             // 防止XSS攻击
             fileUrls = KkFileUtils.htmlEscape(fileUrls);
         } catch (Exception ex) {
@@ -103,7 +137,7 @@ public class OnlinePreviewController {
         String currentUrl = req.getParameter("currentUrl");
         if (StringUtils.hasText(currentUrl)) {
             String decodedCurrentUrl = new String(Base64.decodeBase64(currentUrl));
-                   decodedCurrentUrl = KkFileUtils.htmlEscape(decodedCurrentUrl);   // 防止XSS攻击
+            decodedCurrentUrl = KkFileUtils.htmlEscape(decodedCurrentUrl);   // 防止XSS攻击
             model.addAttribute("currentUrl", decodedCurrentUrl);
         } else {
             model.addAttribute("currentUrl", imgUrls.get(0));
@@ -119,35 +153,50 @@ public class OnlinePreviewController {
      * @param response response
      */
     @GetMapping("/getCorsFile")
-    public void getCorsFile(String urlPath, HttpServletResponse response,FileAttribute fileAttribute) throws IOException {
+    public void getCorsFile(@RequestParam String urlPath,
+                            @RequestParam(required = false) String key,
+                            HttpServletResponse response,
+                            FileAttribute fileAttribute) throws Exception {
+
+        // 1. 验证接口是否开启
+        if (!ConfigConstants.getGetCorsFile()) {
+            logger.info("接口关闭，禁止访问!，url：{}", urlPath);
+            return;
+        }
+        //2. 验证访问权限
+        if (WebUtils.validateKey(key)) {
+            logger.info("访问不合法：访问密码不正确!，url：{}", urlPath);
+            return;
+        }
         URL url;
         try {
-            urlPath = WebUtils.decodeUrl(urlPath);
+            urlPath = WebUtils.decodeUrl(urlPath, "base64");
             url = WebUtils.normalizedURL(urlPath);
         } catch (Exception ex) {
             logger.error(String.format(BASE64_DECODE_ERROR_MSG, urlPath),ex);
             return;
         }
         assert urlPath != null;
-        if (!urlPath.toLowerCase().startsWith("http") && !urlPath.toLowerCase().startsWith("https") && !urlPath.toLowerCase().startsWith("ftp")) {
+        if (!isHttpUrl(url) && !isFtpUrl(url)) {
             logger.info("读取跨域文件异常，可能存在非法访问，urlPath：{}", urlPath);
             return;
         }
         InputStream inputStream = null;
         logger.info("读取跨域pdf文件url：{}", urlPath);
-        if (!urlPath.toLowerCase().startsWith("ftp:")) {
-            factory.setConnectionRequestTimeout(2000);
-            factory.setConnectTimeout(10000);
-            factory.setReadTimeout(72000);
-            HttpClient httpClient = HttpClientBuilder.create().setRedirectStrategy(new DefaultRedirectStrategy()).build();
+        if (!isFtpUrl(url)) {
+            CloseableHttpClient httpClient = SslUtils.createHttpClientIgnoreSsl();
             factory.setHttpClient(httpClient);
+            //  restTemplate.setRequestFactory(factory);
             restTemplate.setRequestFactory(factory);
             RequestCallback requestCallback = request -> {
                 request.getHeaders().setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
                 String proxyAuthorization = fileAttribute.getKkProxyAuthorization();
                 if(StringUtils.hasText(proxyAuthorization)){
-                    Map<String,String> proxyAuthorizationMap = mapper.readValue(proxyAuthorization, Map.class);
-                    proxyAuthorizationMap.forEach((key, value) -> request.getHeaders().set(key, value));
+                    Map<String, String> proxyAuthorizationMap = mapper.readValue(
+                            proxyAuthorization,
+                            TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class)
+                    );
+                    proxyAuthorizationMap.forEach((headerKey, value) -> request.getHeaders().set(headerKey, value));
                 }
             };
             try {
@@ -160,10 +209,16 @@ public class OnlinePreviewController {
             }
         }else{
             try {
-                if(urlPath.contains(".svg")) {
-                    response.setContentType("image/svg+xml");
+                String filename = urlPath.substring(urlPath.lastIndexOf('/') + 1);
+                String contentType = WebUtils.getContentTypeByFilename(filename);
+                if (contentType != null) {
+                    response.setContentType(contentType);
                 }
-                inputStream = (url).openStream();
+                String ftpUsername = WebUtils.getUrlParameterReg(urlPath, URL_PARAM_FTP_USERNAME);
+                String ftpPassword = WebUtils.getUrlParameterReg(urlPath, URL_PARAM_FTP_PASSWORD);
+                String ftpControlEncoding = WebUtils.getUrlParameterReg(urlPath, URL_PARAM_FTP_CONTROL_ENCODING);
+                String support = WebUtils.getUrlParameterReg(urlPath, URL_PARAM_FTP_PORT);
+                inputStream=  FtpUtils.preview(urlPath,support, urlPath, ftpUsername, ftpPassword, ftpControlEncoding);
                 IOUtils.copy(inputStream, response.getOutputStream());
             } catch (IOException e) {
                 logger.error("读取跨域文件异常，url：{}", urlPath);
@@ -180,9 +235,32 @@ public class OnlinePreviewController {
      */
     @GetMapping("/addTask")
     @ResponseBody
-    public String addQueueTask(String url) {
-        logger.info("添加转码队列url：{}", url);
-        cacheService.addQueueTask(url);
+    public String addQueueTask(@RequestParam String url,
+                               @RequestParam(required = false) String key,
+                               @RequestParam(required = false) String encryption) {
+        // 1. 验证接口是否开启
+        if (!ConfigConstants.getAddTask()) {
+            String errorMsg = "接口关闭，禁止访问!";
+            logger.info("{}，url：{}", errorMsg, url);
+            return errorMsg;
+        }
+        String fileUrls;
+        try {
+            fileUrls = WebUtils.decodeUrl(url, encryption);
+        } catch (Exception ex) {
+            String errorMsg = "Url解析错误";
+            logger.info("{}，url：{}", errorMsg, url);
+            return errorMsg;
+        }
+
+        //2. 验证访问权限
+        if (WebUtils.validateKey(key)) {
+            String errorMsg = "访问不合法：访问密码不正确!";
+            logger.info("{}，url：{}", errorMsg, fileUrls);
+            return errorMsg;
+        }
+        logger.info("添加转码队列url：{}", fileUrls);
+        cacheService.addQueueTask(fileUrls);
         return "success";
     }
 }
