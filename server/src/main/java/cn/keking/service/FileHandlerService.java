@@ -199,14 +199,16 @@ public class FileHandlerService implements InitializingBean {
         String baseUrl = BaseUrlFilter.getBaseUrl();
         pdfFilePath = pdfFilePath.replace(fileDir, "");
         String pdfFolder = pdfFilePath.substring(0, pdfFilePath.length() - 4);
-        String urlPrefix;
-        try {
-            urlPrefix = baseUrl + URLEncoder.encode(pdfFolder, uriEncoding).replaceAll("\\+", "%20");
-        } catch (UnsupportedEncodingException e) {
-            logger.error("UnsupportedEncodingException", e);
-            urlPrefix = baseUrl + pdfFolder;
-        }
-        return urlPrefix + "/" + index + PDF2JPG_IMAGE_FORMAT;
+        // 对整个路径进行编码，包括特殊字符
+        String encodedPath = URLEncoder.encode(pdfFolder, StandardCharsets.UTF_8);
+        encodedPath = encodedPath
+                .replaceAll("%2F", "/")  // 恢复斜杠
+                .replaceAll("%5C", "/")  // 恢复反斜杠
+                .replaceAll("\\+", "%20");  // 空格处理
+        // 构建URL：使用_作为分隔符（这是kkFileView压缩包预览的常见格式）
+        String url = baseUrl + encodedPath + "/" + index + PDF2JPG_IMAGE_FORMAT;
+        return url;
+
     }
 
     /**

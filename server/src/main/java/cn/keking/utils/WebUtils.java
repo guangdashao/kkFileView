@@ -61,11 +61,10 @@ public class WebUtils {
      *
      */
     public static String encodeFileName(String name) {
-        try {
-            name = URLEncoder.encode(name, "UTF-8").replaceAll("\\+", "%20");
-        } catch (UnsupportedEncodingException e) {
-            return null;
-        }
+        name = URLEncoder.encode(name, StandardCharsets.UTF_8)
+                .replaceAll("%2F", "/")  // 恢复斜杠
+                .replaceAll("%5C", "/")  // 恢复反斜杠
+                .replaceAll("\\+", "%20");  // 空格处理
         return name;
     }
 
