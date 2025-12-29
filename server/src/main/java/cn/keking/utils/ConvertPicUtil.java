@@ -1,6 +1,7 @@
 package cn.keking.utils;
 
 import cn.keking.config.ConfigConstants;
+import cn.keking.service.FileHandlerService;
 import cn.keking.web.filter.BaseUrlFilter;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Image;
@@ -8,14 +9,12 @@ import com.itextpdf.text.io.FileChannelRandomAccessSource;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.itextpdf.text.pdf.RandomAccessFileOrArray;
 import com.itextpdf.text.pdf.codec.TiffImage;
-import com.sun.media.jai.codec.*;
+import org.apache.commons.imaging.Imaging;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.media.jai.JAI;
-import javax.media.jai.RenderedOp;
-import java.awt.image.RenderedImage;
-import java.awt.image.renderable.ParameterBlock;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -40,57 +39,53 @@ public class ConvertPicUtil {
     public static List<String> convertTif2Jpg(String strInputFile, String strOutputFile, boolean forceUpdatedCache) throws Exception {
         List<String> listImageFiles = new ArrayList<>();
         String baseUrl = BaseUrlFilter.getBaseUrl();
-        if (!new File(strInputFile).exists()) {
-            logger.info("找不到文件【" + strInputFile + "】");
+        strOutputFile = strOutputFile.substring(0, strOutputFile.lastIndexOf('.'));
+
+        File tiffFile = new File(strInputFile);
+        if (!tiffFile.exists()) {
+            logger.info("找不到文件【{}】", strInputFile);
             return null;
         }
-        strOutputFile = strOutputFile.replaceAll(".jpg", "");
-        FileSeekableStream fileSeekStream = null;
+
+        File outputDir = new File(strOutputFile);
+        if (!outputDir.exists() && !outputDir.mkdirs()) {
+            throw new IOException("创建目录失败: " + strOutputFile);
+        }
+
+        List<BufferedImage> images;
         try {
-            JPEGEncodeParam jpegEncodeParam = new JPEGEncodeParam();
-            TIFFEncodeParam tiffEncodeParam = new TIFFEncodeParam();
-            tiffEncodeParam.setCompression(TIFFEncodeParam.COMPRESSION_GROUP4);
-            tiffEncodeParam.setLittleEndian(false);
-            fileSeekStream = new FileSeekableStream(strInputFile);
-            ImageDecoder imageDecoder = ImageCodec.createImageDecoder("TIFF", fileSeekStream, null);
-            int intTifCount = imageDecoder.getNumPages();
-            // logger.info("该tif文件共有【" + intTifCount + "】页");
-            // 处理目标文件夹，如果不存在则自动创建
-            File fileJpgPath = new File(strOutputFile);
-            if (!fileJpgPath.exists() && !fileJpgPath.mkdirs()) {
-                logger.error("{} 创建失败", strOutputFile);
-            }
-            // 循环，处理每页tif文件，转换为jpg
-            for (int i = 0; i < intTifCount; i++) {
-                String strJpg= strOutputFile + "/" + i + ".jpg";
-                File fileJpg = new File(strJpg);
-                // 如果文件不存在，则生成
-                if (forceUpdatedCache|| !fileJpg.exists()) {
-                    RenderedImage renderedImage = imageDecoder.decodeAsRenderedImage(i);
-                    ParameterBlock pb = new ParameterBlock();
-                    pb.addSource(renderedImage);
-                    pb.add(fileJpg.toString());
-                    pb.add("JPEG");
-                    pb.add(jpegEncodeParam);
-                    RenderedOp renderedOp = JAI.create("filestore", pb);
-                    renderedOp.dispose();
-                    // logger.info("每页分别保存至： " + fileJpg.getCanonicalPath());
+            images = Imaging.getAllBufferedImages(tiffFile);
+            for (int i = 0; i < images.size(); i++) {
+                String fileName = strOutputFile + File.separator + i + ".jpg";
+                File outputFile = new File(fileName);
+
+                // 如果需要强制更新缓存或者文件不存在，则转换
+                if (forceUpdatedCache || !outputFile.exists()) {
+                    BufferedImage image = images.get(i);
+                    // 写入JPG格式
+                    boolean success = ImageIO.write(image, "png", outputFile);
+                    if (!success) {
+                        throw new IOException("无法写入JPG格式图片: " + fileName);
+                    }
+                    logger.debug("转换图片: {}", fileName);
+                } else {
+                    logger.debug("使用缓存图片: {}", fileName);
                 }
-                strJpg = baseUrl+strJpg.replace(fileDir, "");
-                listImageFiles.add(strJpg);
+
+                // 构建URL
+                String relativePath = fileName.replace(fileDir, "");
+                String url = baseUrl + WebUtils.encodeFileName(relativePath);
+                listImageFiles.add(url);
             }
         } catch (IOException e) {
-            if (!e.getMessage().contains("Bad endianness tag (not 0x4949 or 0x4d4d)") ) {
-                logger.error("TIF转JPG异常，文件路径：" + strInputFile, e);
+            if (!e.getMessage().contains("Only sequential, baseline JPEGs are supported at the moment")) {
+                logger.error("TIF转JPG异常，文件路径：{}", strInputFile, e);
             }
             throw new Exception(e);
-        } finally {
-            if (fileSeekStream != null) {
-                fileSeekStream.close();
-            }
         }
         return listImageFiles;
     }
+
 
     /**
      * 将Jpg图片转换为Pdf文件
@@ -113,9 +108,9 @@ public class ConvertPicUtil {
             document.open();
             Image image;
             for (int i = 1; i <= pages; i++) {
-             image = TiffImage.getTiffImage(rafa, i);
-             image.scaleToFit(FIT_WIDTH, FIT_HEIGHT);
-             document.add(image);
+                image = TiffImage.getTiffImage(rafa, i);
+                image.scaleToFit(FIT_WIDTH, FIT_HEIGHT);
+                document.add(image);
             }
         } catch (IOException e) {
             if (!e.getMessage().contains("Bad endianness tag (not 0x4949 or 0x4d4d)") ) {
