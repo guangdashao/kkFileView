@@ -22,27 +22,27 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * @author yudian-it
+ * PDF转JPG服务 - 高性能优化版本
  */
 @Component
 public class PdfToJpgService {
     private final FileHandlerService fileHandlerService;
 
-    // PDF转换专用线程池
-    private ExecutorService pdfConversionPool;
-    private ThreadPoolExecutor pdfThreadPoolExecutor;
-
+    // 使用线程池替代虚拟线程，便于控制并发数
+    private ExecutorService threadPoolExecutor;
     private static final Logger logger = LoggerFactory.getLogger(PdfToJpgService.class);
     private static final String PDF_PASSWORD_MSG = "password";
     private static final String PDF2JPG_IMAGE_FORMAT = ".jpg";
+    private static final int BATCH_SIZE = 20;
+    private static final int PARALLEL_BATCH_THRESHOLD = 100;
 
-    // 最大并行页数阈值
-    private static final int MAX_PARALLEL_PAGES = 20;
+    // 性能监控
+    private final AtomicInteger activeTaskCount = new AtomicInteger(0);
+    private final AtomicInteger totalCompletedTasks = new AtomicInteger(0);
 
     public PdfToJpgService(FileHandlerService fileHandlerService) {
         this.fileHandlerService = fileHandlerService;
@@ -50,119 +50,46 @@ public class PdfToJpgService {
 
     @PostConstruct
     public void init() {
-        try {
-            int threadCount = getPdfThreadPoolSize();
-            int queueCapacity = threadCount * 10;
+        // 使用固定大小的线程池，便于控制并发数
+        int maxThreads = ConfigConstants.getPdfMaxThreads();
+        this.threadPoolExecutor = new ThreadPoolExecutor(
+                maxThreads, // 核心线程数
+                maxThreads, // 最大线程数
+                60L, TimeUnit.SECONDS, // 空闲线程存活时间
+                new LinkedBlockingQueue<>(100), // 任务队列
+                Executors.defaultThreadFactory(),
+                new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略：由调用线程执行
+        );
 
-            AtomicInteger threadNum = new AtomicInteger(1);
-            pdfThreadPoolExecutor = new ThreadPoolExecutor(
-                    threadCount,
-                    threadCount,
-                    60L,
-                    TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<>(queueCapacity),
-                    r -> {
-                        Thread t = new Thread(r);
-                        t.setName("pdf-convert-pool-" + threadNum.getAndIncrement());
-                        t.setUncaughtExceptionHandler((thread, throwable) ->
-                                logger.error("PDF转换线程未捕获异常: {}", thread.getName(), throwable));
-                        return t;
-                    },
-                    new ThreadPoolExecutor.CallerRunsPolicy()
-            );
-
-            pdfThreadPoolExecutor.allowCoreThreadTimeOut(true);
-            pdfConversionPool = pdfThreadPoolExecutor;
-
-            logger.info("PDF转换线程池初始化完成，线程数: {}, 队列容量: {}",
-                    threadCount, queueCapacity);
-
-        } catch (Exception e) {
-            logger.error("PDF转换线程池初始化失败", e);
-            int defaultThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-            pdfConversionPool = Executors.newFixedThreadPool(defaultThreads);
-            logger.warn("使用默认PDF线程池配置，线程数: {}", defaultThreads);
-        }
-    }
-
-    private int getPdfThreadPoolSize() {
-        try {
-            String pdfThreadConfig = System.getProperty("pdf.thread.count");
-            int threadCount;
-            if (pdfThreadConfig != null) {
-                threadCount = Integer.parseInt(pdfThreadConfig);
-            } else {
-                threadCount = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-            }
-
-            if (threadCount <= 0) {
-                threadCount = Runtime.getRuntime().availableProcessors();
-                logger.warn("PDF线程数配置无效，使用CPU核心数: {}", threadCount);
-            }
-
-            int maxThreads = Runtime.getRuntime().availableProcessors() * 2;
-            if (threadCount > maxThreads) {
-                logger.warn("PDF线程数配置过大({})，限制为: {}", threadCount, maxThreads);
-                threadCount = maxThreads;
-            }
-            return threadCount;
-        } catch (Exception e) {
-            logger.error("获取PDF线程数配置失败", e);
-            return Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-        }
+        logger.info("PDF转换线程池初始化完成，最大线程数: {}", maxThreads);
     }
 
     @PreDestroy
     public void shutdown() {
-        if (pdfConversionPool != null && !pdfConversionPool.isShutdown()) {
-            gracefulShutdown(pdfConversionPool, getShutdownTimeout());
-        }
-    }
-
-    private long getShutdownTimeout() {
-        try {
-            String pdfTimeout = System.getProperty("pdf.timeout");
-            if (pdfTimeout != null) {
-                return Long.parseLong(pdfTimeout);
-            }
-            return Long.parseLong(ConfigConstants.getCadTimeout());
-        } catch (Exception e) {
-            logger.warn("获取PDF关闭超时时间失败，使用默认值60秒", e);
-            return 60L;
-        }
-    }
-
-    private void gracefulShutdown(ExecutorService executor, long timeoutSeconds) {
-        logger.info("开始关闭{}...", "PDF转换线程池");
-        executor.shutdown();
-
-        try {
-            if (!executor.awaitTermination(timeoutSeconds, TimeUnit.SECONDS)) {
-                logger.warn("{}超时未关闭，尝试强制关闭...", "PDF转换线程池");
-                executor.shutdownNow();
-
-                if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
-                    logger.error("{}无法完全关闭", "PDF转换线程池");
-                } else {
-                    logger.info("{}已强制关闭", "PDF转换线程池");
+        if (threadPoolExecutor != null && !threadPoolExecutor.isShutdown()) {
+            threadPoolExecutor.shutdown();
+            try {
+                if (!threadPoolExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+                    threadPoolExecutor.shutdownNow();
                 }
-            } else {
-                logger.info("{}已正常关闭", "PDF转换线程池");
+            } catch (InterruptedException e) {
+                threadPoolExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
             }
-        } catch (InterruptedException e) {
-            logger.error("{}关闭时被中断", "PDF转换线程池", e);
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
+            logger.info("PDF转换服务已关闭");
         }
     }
 
+    /**
+     * PDF转JPG - 高性能主方法
+     */
     public List<String> pdf2jpg(String fileNameFilePath, String pdfFilePath,
                                 String pdfName, FileAttribute fileAttribute) throws Exception {
         boolean forceUpdatedCache = fileAttribute.forceUpdatedCache();
         boolean usePasswordCache = fileAttribute.getUsePasswordCache();
         String filePassword = fileAttribute.getFilePassword();
 
-        // 1. 检查缓存
+        // 检查缓存
         if (!forceUpdatedCache) {
             List<String> cacheResult = fileHandlerService.loadPdf2jpgCache(pdfFilePath);
             if (!CollectionUtils.isEmpty(cacheResult)) {
@@ -170,14 +97,14 @@ public class PdfToJpgService {
             }
         }
 
-        // 2. 验证文件存在
+        // 验证文件存在
         File pdfFile = new File(fileNameFilePath);
         if (!pdfFile.exists()) {
             logger.error("PDF文件不存在: {}", fileNameFilePath);
             return null;
         }
 
-        // 3. 创建输出目录
+        // 创建输出目录
         int index = pdfFilePath.lastIndexOf(".");
         String folder = pdfFilePath.substring(0, index);
         File path = new File(folder);
@@ -186,33 +113,280 @@ public class PdfToJpgService {
             throw new IOException("无法创建输出目录");
         }
 
-        // 4. 加载PDF文档获取页数
-        int pageCount = 0;
+        // 加载PDF文档获取页数
+        int pageCount;
         try (PDDocument tempDoc = Loader.loadPDF(pdfFile, filePassword)) {
             pageCount = tempDoc.getNumberOfPages();
-            logger.info("PDF文件总页数: {}, 文件: {}", pageCount, pdfFilePath);
         } catch (IOException e) {
             handlePdfLoadException(e, pdfFilePath);
             throw new Exception("PDF文件加载失败", e);
         }
 
-        // 5. 根据页数决定转换策略
+        // 检查线程池负载
+        checkThreadPoolLoad();
+
+        // 根据页数选择最佳转换策略
         List<String> imageUrls;
-        if (pageCount > MAX_PARALLEL_PAGES) {
-            // 大文件使用新方案：每页独立加载PDF
-            imageUrls = convertParallelIndependent(pdfFile, filePassword, pdfFilePath, folder, pageCount);
+        long startTime = System.currentTimeMillis();
+
+        if (pageCount <= PARALLEL_BATCH_THRESHOLD) {
+            imageUrls = convertOptimizedParallel(pdfFile, filePassword, pdfFilePath, folder, pageCount);
         } else {
-            // 小文件使用串行处理（稳定）
-            imageUrls = convertSequentially(pdfFile, filePassword, pdfFilePath, folder, pageCount);
+            imageUrls = convertHighPerformance(pdfFile, filePassword, pdfFilePath, folder, pageCount);
         }
 
-        // 6. 缓存结果
+        long elapsedTime = System.currentTimeMillis() - startTime;
+
+        // 缓存结果
         if (usePasswordCache || ObjectUtils.isEmpty(filePassword)) {
             fileHandlerService.addPdf2jpgCache(pdfFilePath, pageCount);
         }
 
-        logger.info("PDF转换完成，成功转换{}页，文件: {}", imageUrls.size(), pdfFilePath);
+        // 性能统计
+        logger.info("PDF转换完成: 总页数={}, 耗时={}ms, DPI={}, 文件: {}, 活动任务: {}",
+                pageCount, elapsedTime, ConfigConstants.getOptimizedDpi(pageCount),
+                pdfFilePath, activeTaskCount.get());
+
         return imageUrls;
+    }
+
+    /**
+     * 检查线程池负载
+     */
+    private void checkThreadPoolLoad() {
+        if (threadPoolExecutor instanceof ThreadPoolExecutor pool) {
+            int activeCount = pool.getActiveCount();
+            long taskCount = pool.getTaskCount();
+            long completedTaskCount = pool.getCompletedTaskCount();
+            int queueSize = pool.getQueue().size();
+
+            logger.debug("线程池状态: 活动线程={}, 队列大小={}, 总任务={}, 已完成={}",
+                    activeCount, queueSize, taskCount, completedTaskCount);
+
+            if (queueSize > 50) {
+                logger.warn("PDF转换任务队列堆积，当前队列大小: {}", queueSize);
+            }
+        }
+    }
+
+    /**
+     * 高性能并行转换 - 独立加载每个批次（针对100页以上的大文件）
+     */
+    private List<String> convertHighPerformance(File pdfFile, String filePassword,
+                                                String pdfFilePath, String folder, int pageCount) {
+        List<String> imageUrls = Collections.synchronizedList(new ArrayList<>(pageCount));
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger errorCount = new AtomicInteger(0);
+        int batchCount = (pageCount + BATCH_SIZE - 1) / BATCH_SIZE;
+        long[] totalBatchTime = new long[]{0};
+
+        logger.info("使用高性能独立加载并行转换，总页数: {}, 批次数: {}, DPI: {}, 超时: {}秒",
+                pageCount, batchCount, ConfigConstants.getOptimizedDpi(pageCount),
+                calculateTimeout(pageCount));
+
+        List<CompletableFuture<Void>> batchFutures = new ArrayList<>();
+
+        for (int batchIndex = 0; batchIndex < batchCount; batchIndex++) {
+            final int currentBatch = batchIndex;
+            final int batchStart = batchIndex * BATCH_SIZE;
+            final int batchEnd = Math.min(batchStart + BATCH_SIZE, pageCount);
+
+            CompletableFuture<Void> batchFuture = CompletableFuture.runAsync(() -> {
+                activeTaskCount.incrementAndGet();
+                long batchStartTime = System.currentTimeMillis();
+                try {
+                    try (PDDocument batchDoc = Loader.loadPDF(pdfFile, filePassword)) {
+                        batchDoc.setResourceCache(new NotResourceCache());
+                        PDFRenderer renderer = new PDFRenderer(batchDoc);
+                        renderer.setSubsamplingAllowed(true);
+
+                        // 直接使用配置的DPI值
+                        int dpi = ConfigConstants.getOptimizedDpi(pageCount);
+
+                        int pagesInBatch = 0;
+                        for (int pageIndex = batchStart; pageIndex < batchEnd; pageIndex++) {
+                            try {
+                                String imageFilePath = folder + File.separator + pageIndex + PDF2JPG_IMAGE_FORMAT;
+                                BufferedImage image = renderer.renderImageWithDPI(
+                                        pageIndex,
+                                        dpi,
+                                        ImageType.RGB
+                                );
+
+                                ImageIOUtil.writeImage(image, imageFilePath, dpi);
+                                image.flush();
+
+                                String imageUrl = fileHandlerService.getPdf2jpgUrl(pdfFilePath, pageIndex);
+                                synchronized (imageUrls) {
+                                    imageUrls.add(imageUrl);
+                                }
+
+                                successCount.incrementAndGet();
+                                pagesInBatch++;
+
+                            } catch (Exception e) {
+                                errorCount.incrementAndGet();
+                                logger.error("转换页 {} 失败: {}", pageIndex, e.getMessage());
+                            }
+                        }
+
+                        long batchTime = System.currentTimeMillis() - batchStartTime;
+                        synchronized (this) {
+                            totalBatchTime[0] += batchTime;
+                        }
+
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("批次{}完成: 转换{}页, 耗时: {}ms",
+                                    currentBatch, pagesInBatch, batchTime);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("批次{}处理失败: {}", currentBatch, e.getMessage());
+                    errorCount.addAndGet(batchEnd - batchStart);
+                } finally {
+                    activeTaskCount.decrementAndGet();
+                    totalCompletedTasks.incrementAndGet();
+                }
+            }, threadPoolExecutor);
+
+            batchFutures.add(batchFuture);
+        }
+
+        // 等待所有批次完成
+        int timeout = calculateTimeout(pageCount);
+        long waitStartTime = System.currentTimeMillis();
+
+        try {
+            CompletableFuture<Void> allBatches = CompletableFuture.allOf(
+                    batchFutures.toArray(new CompletableFuture[0])
+            );
+            allBatches.get(timeout, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            logger.warn("PDF转换超时，已转换页数: {}，超时时间: {}秒", successCount.get(), timeout);
+        } catch (Exception e) {
+            logger.error("批量转换失败", e);
+        }
+
+        long waitTime = System.currentTimeMillis() - waitStartTime;
+
+        logger.info("批次转换统计: 总批次={}, 成功={}, 失败={}, DPI={}, 等待耗时={}ms",
+                batchCount, successCount.get(), errorCount.get(),
+                ConfigConstants.getOptimizedDpi(pageCount), waitTime);
+
+        // 按页码排序
+        return sortImageUrls(imageUrls);
+    }
+
+    /**
+     * 优化并行转换 - 线程安全的批处理模式（针对100页以内的文件）
+     */
+    private List<String> convertOptimizedParallel(File pdfFile, String filePassword,
+                                                  String pdfFilePath, String folder, int pageCount) {
+        int dpi = ConfigConstants.getOptimizedDpi(pageCount);
+
+        logger.info("使用高性能批处理并行转换，总页数: {}, DPI: {}, 超时: {}秒",
+                pageCount, dpi, calculateTimeout(pageCount));
+
+        // 按CPU核心数划分批次，优化并行度
+        int availableProcessors = Runtime.getRuntime().availableProcessors();
+        int optimalBatchSize = Math.max(1, pageCount / availableProcessors);
+        optimalBatchSize = Math.min(optimalBatchSize, 10); // 每批最多10页
+
+        logger.debug("可用处理器: {}, 推荐批次大小: {}", availableProcessors, optimalBatchSize);
+
+        List<CompletableFuture<List<String>>> batchFutures = new ArrayList<>();
+        List<String> allImageUrls = Collections.synchronizedList(new ArrayList<>(pageCount));
+
+        // 分批次并行处理
+        for (int batchStart = 0; batchStart < pageCount; batchStart += optimalBatchSize) {
+            final int startPage = batchStart;
+            final int endPage = Math.min(batchStart + optimalBatchSize, pageCount);
+
+            CompletableFuture<List<String>> batchFuture = CompletableFuture.supplyAsync(() -> {
+                List<String> batchImageUrls = new ArrayList<>(endPage - startPage);
+                activeTaskCount.incrementAndGet();
+
+                try {
+                    // 每个批次独立加载PDF，处理一批页面（而不是一页）
+                    try (PDDocument batchDoc = Loader.loadPDF(pdfFile, filePassword)) {
+                        batchDoc.setResourceCache(new NotResourceCache());
+                        PDFRenderer renderer = new PDFRenderer(batchDoc);
+                        renderer.setSubsamplingAllowed(true);
+
+                        for (int pageIndex = startPage; pageIndex < endPage; pageIndex++) {
+                            try {
+                                String imageFilePath = folder + File.separator + pageIndex + PDF2JPG_IMAGE_FORMAT;
+                                BufferedImage image = renderer.renderImageWithDPI(
+                                        pageIndex,
+                                        dpi,
+                                        ImageType.RGB
+                                );
+
+                                ImageIOUtil.writeImage(image, imageFilePath, dpi);
+                                image.flush();
+
+                                String imageUrl = fileHandlerService.getPdf2jpgUrl(pdfFilePath, pageIndex);
+                                batchImageUrls.add(imageUrl);
+
+                            } catch (Exception e) {
+                                logger.error("批次内转换页 {} 失败: {}", pageIndex, e.getMessage());
+                                // 添加占位符URL
+                                String placeholderUrl = fileHandlerService.getPdf2jpgUrl(pdfFilePath, pageIndex);
+                                batchImageUrls.add(placeholderUrl);
+                            }
+                        }
+
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("批次 {}-{} 完成，转换 {} 页",
+                                    startPage, endPage - 1, batchImageUrls.size());
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("批次 {}-{} 加载失败: {}", startPage, endPage - 1, e.getMessage());
+                    // 为整个批次添加占位符URL
+                    for (int pageIndex = startPage; pageIndex < endPage; pageIndex++) {
+                        batchImageUrls.add(fileHandlerService.getPdf2jpgUrl(pdfFilePath, pageIndex));
+                    }
+                } finally {
+                    activeTaskCount.decrementAndGet();
+                    totalCompletedTasks.incrementAndGet();
+                }
+
+                return batchImageUrls;
+            }, threadPoolExecutor);
+
+            batchFutures.add(batchFuture);
+        }
+
+        // 等待所有批次完成并收集结果
+        CompletableFuture<Void> allBatches = CompletableFuture.allOf(
+                batchFutures.toArray(new CompletableFuture[0])
+        );
+
+        int timeout = calculateTimeout(pageCount);
+        try {
+            allBatches.get(timeout, TimeUnit.SECONDS);
+
+            // 收集所有批次的结果
+            for (CompletableFuture<List<String>> future : batchFutures) {
+                try {
+                    List<String> batchUrls = future.getNow(null);
+                    if (batchUrls != null) {
+                        allImageUrls.addAll(batchUrls);
+                    }
+                } catch (Exception e) {
+                    // 忽略已完成的任务
+                }
+            }
+
+        } catch (TimeoutException e) {
+            logger.warn("PDF转换超时，已转换页数: {}，超时时间: {}秒", allImageUrls.size(), timeout);
+        } catch (Exception e) {
+            logger.error("批次并行转换失败", e);
+        }
+
+        // 确保返回正确数量的URL
+        return sortImageUrls(allImageUrls);
     }
 
     /**
@@ -233,167 +407,36 @@ public class PdfToJpgService {
     }
 
     /**
-     * 串行转换（稳定方案）
+     * 计算超时时间 - 标准化配置，不使用计算
      */
-    private List<String> convertSequentially(File pdfFile, String filePassword,
-                                             String pdfFilePath, String folder, int pageCount) {
-        List<String> imageUrls = new ArrayList<>(pageCount);
-
-        try (PDDocument doc = Loader.loadPDF(pdfFile, filePassword)) {
-            doc.setResourceCache(new NotResourceCache());
-            PDFRenderer pdfRenderer = new PDFRenderer(doc);
-            pdfRenderer.setSubsamplingAllowed(true);
-
-            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-                try {
-                    String imageFilePath = folder + File.separator + pageIndex + PDF2JPG_IMAGE_FORMAT;
-                    BufferedImage image = pdfRenderer.renderImageWithDPI(
-                            pageIndex,
-                            ConfigConstants.getPdf2JpgDpi(),
-                            ImageType.RGB
-                    );
-
-                    ImageIOUtil.writeImage(image, imageFilePath, ConfigConstants.getPdf2JpgDpi());
-                    image.flush();
-
-                    String imageUrl = fileHandlerService.getPdf2jpgUrl(pdfFilePath, pageIndex);
-                    imageUrls.add(imageUrl);
-
-                    logger.debug("串行转换页 {} 完成", pageIndex);
-
-                } catch (Exception e) {
-                    logger.error("串行转换页 {} 失败: {}", pageIndex, e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            logger.error("串行转换PDF失败", e);
+    private int calculateTimeout(int pageCount) {
+        // 根据页数范围直接返回对应的超时时间配置
+        if (pageCount <= 50) {
+            return ConfigConstants.getPdfTimeoutSmall();      // 小文件：90秒
+        } else if (pageCount <= 200) {
+            return ConfigConstants.getPdfTimeoutMedium();     // 中等文件：180秒
+        } else if (pageCount <= 500) {
+            return ConfigConstants.getPdfTimeoutLarge();      // 大文件：300秒
+        } else {
+            return ConfigConstants.getPdfTimeoutXLarge();     // 超大文件：600秒
         }
-
-        return imageUrls;
     }
 
     /**
-     * 并行转换 - 每个线程独立加载PDF（避免线程安全问题）
+     * 按页码排序
      */
-    private List<String> convertParallelIndependent(File pdfFile, String filePassword,
-                                                    String pdfFilePath, String folder, int pageCount) {
-        List<String> imageUrls = Collections.synchronizedList(new ArrayList<>());
-        List<Future<Boolean>> futures = new ArrayList<>();
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger errorCount = new AtomicInteger(0);
-
-        // 提交页面转换任务
-        for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-            final int currentPage = pageIndex;
-
-            Future<Boolean> future = pdfConversionPool.submit(() -> {
-                try {
-                    // 每个任务独立加载PDF，确保线程安全
-                    try (PDDocument pageDoc = Loader.loadPDF(pdfFile, filePassword)) {
-                        pageDoc.setResourceCache(new NotResourceCache());
-                        PDFRenderer renderer = new PDFRenderer(pageDoc);
-                        renderer.setSubsamplingAllowed(true);
-
-                        String imageFilePath = folder + File.separator + currentPage + PDF2JPG_IMAGE_FORMAT;
-                        BufferedImage image = renderer.renderImageWithDPI(
-                                currentPage,
-                                ConfigConstants.getPdf2JpgDpi(),
-                                ImageType.RGB
-                        );
-
-                        ImageIOUtil.writeImage(image, imageFilePath, ConfigConstants.getPdf2JpgDpi());
-                        image.flush();
-
-                        String imageUrl = fileHandlerService.getPdf2jpgUrl(pdfFilePath, currentPage);
-                        synchronized (imageUrls) {
-                            imageUrls.add(imageUrl);
-                        }
-
-                        successCount.incrementAndGet();
-                        logger.debug("并行转换页 {} 完成", currentPage);
-                        return true;
-                    }
-                } catch (Exception e) {
-                    errorCount.incrementAndGet();
-                    logger.error("并行转换页 {} 失败: {}", currentPage, e.getMessage());
-                    return false;
-                }
-            });
-
-            futures.add(future);
-        }
-
-        // 等待所有任务完成
-        int timeout = calculateTimeout(pageCount);
-        long startTime = System.currentTimeMillis();
-
-        for (Future<Boolean> future : futures) {
+    private List<String> sortImageUrls(List<String> imageUrls) {
+        List<String> sortedImageUrls = new ArrayList<>(imageUrls);
+        sortedImageUrls.sort((url1, url2) -> {
             try {
-                future.get(timeout, TimeUnit.SECONDS);
-            } catch (TimeoutException e) {
-                logger.warn("页面转换任务超时，取消剩余任务");
-                for (Future<Boolean> f : futures) {
-                    if (!f.isDone()) {
-                        f.cancel(true);
-                    }
-                }
-                break;
-            } catch (Exception e) {
-                logger.error("页面转换任务执行失败", e);
-            }
-
-            // 检查是否超时
-            if (System.currentTimeMillis() - startTime > timeout * 1000L) {
-                logger.warn("PDF转换整体超时，取消剩余任务");
-                for (Future<Boolean> f : futures) {
-                    if (!f.isDone()) {
-                        f.cancel(true);
-                    }
-                }
-                break;
-            }
-        }
-
-        long elapsedTime = System.currentTimeMillis() - startTime;
-        logger.info("并行转换统计: 成功={}, 失败={}, 总页数={}, 耗时={}ms",
-                successCount.get(), errorCount.get(), pageCount, elapsedTime);
-
-        // 按页码排序
-        imageUrls.sort(Comparator.comparingInt(url -> {
-            try {
-                String pageStr = url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
-                return Integer.parseInt(pageStr);
+                String pageStr1 = url1.substring(url1.lastIndexOf('/') + 1, url1.lastIndexOf('.'));
+                String pageStr2 = url2.substring(url2.lastIndexOf('/') + 1, url2.lastIndexOf('.'));
+                return Integer.compare(Integer.parseInt(pageStr1), Integer.parseInt(pageStr2));
             } catch (Exception e) {
                 return 0;
             }
-        }));
-
-        return imageUrls;
+        });
+        return sortedImageUrls;
     }
 
-    /**
-     * 计算超时时间
-     */
-    private int calculateTimeout(int pageCount) {
-        if (pageCount <= 50) {
-            return ConfigConstants.getPdfTimeout();
-        } else if (pageCount <= 200) {
-            return ConfigConstants.getPdfTimeout80();
-        } else {
-            return ConfigConstants.getPdfTimeout200();
-        }
-    }
-
-    /**
-     * 监控线程池状态
-     */
-    public void monitorThreadPoolStatus() {
-        if (pdfThreadPoolExecutor != null) {
-            logger.info("PDF线程池状态: 活跃线程={}, 队列大小={}, 完成任务={}, 线程总数={}",
-                    pdfThreadPoolExecutor.getActiveCount(),
-                    pdfThreadPoolExecutor.getQueue().size(),
-                    pdfThreadPoolExecutor.getCompletedTaskCount(),
-                    pdfThreadPoolExecutor.getPoolSize());
-        }
-    }
 }

@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import fr.opensagres.xdocreport.core.io.IOUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
@@ -63,8 +64,6 @@ public class OnlinePreviewController {
     private final CacheService cacheService;
     private final FileHandlerService fileHandlerService;
     private final OtherFilePreviewImpl otherFilePreview;
-    private static final RestTemplate restTemplate = new RestTemplate();
-    private static  final HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
     private static final ObjectMapper mapper = new ObjectMapper();
 
     public OnlinePreviewController(FilePreviewFactory filePreviewFactory, FileHandlerService fileHandlerService, CacheService cacheService, OtherFilePreviewImpl otherFilePreview) {
@@ -181,12 +180,18 @@ public class OnlinePreviewController {
         InputStream inputStream = null;
         logger.info("读取跨域pdf文件url：{}", urlPath);
         if (!isFtpUrl(url)) {
-            CloseableHttpClient httpClient = SslUtils.createHttpClientIgnoreSsl();
+            // 根据配置创建HttpClient
+            CloseableHttpClient httpClient = createConfiguredHttpClient();
+
+            HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
             factory.setHttpClient(httpClient);
-            //  restTemplate.setRequestFactory(factory);
+
+            RestTemplate restTemplate = new RestTemplate();
             restTemplate.setRequestFactory(factory);
+
             RequestCallback requestCallback = request -> {
                 request.getHeaders().setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+                WebUtils.applyBasicAuthHeaders(request.getHeaders(), fileAttribute);
                 String proxyAuthorization = fileAttribute.getKkProxyAuthorization();
                 if(StringUtils.hasText(proxyAuthorization)){
                     Map<String, String> proxyAuthorizationMap = mapper.readValue(
@@ -202,9 +207,24 @@ public class OnlinePreviewController {
                     return null;
                 });
             }  catch (Exception e) {
-                System.out.println(e);
+                // 如果是SSL证书错误，给出建议
+                if (e.getMessage() != null &&
+                        (e.getMessage().contains("SSL") ||
+                                e.getMessage().contains("证书") ||
+                                e.getMessage().contains("certificate")) &&
+                        !ConfigConstants.isIgnoreSSL()) {
+                    logger.warn("SSL证书验证失败，建议启用SSL忽略功能或检查证书");
+                }
+                logger.error("获取跨域文件失败", e);
+            } finally {
+                // 确保HttpClient被关闭
+                try {
+                    httpClient.close();
+                } catch (IOException e) {
+                    logger.warn("关闭HttpClient失败", e);
+                }
             }
-        }else{
+        } else {
             try {
                 String filename = urlPath.substring(urlPath.lastIndexOf('/') + 1);
                 String contentType = WebUtils.getContentTypeByFilename(filename);
@@ -223,6 +243,20 @@ public class OnlinePreviewController {
                 IOUtils.closeQuietly(inputStream);
             }
         }
+    }
+
+    /**
+     * 创建根据配置定制的HttpClient
+     */
+    private CloseableHttpClient createConfiguredHttpClient() throws Exception {
+        org.apache.hc.client5.http.impl.classic.HttpClientBuilder builder = HttpClients.custom();
+
+        // 配置SSL和重定向
+        return SslUtils.configureHttpClientBuilder(
+                builder,
+                ConfigConstants.isIgnoreSSL(),
+                ConfigConstants.isEnableRedirect()
+        ).build();
     }
 
     /**

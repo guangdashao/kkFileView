@@ -5,7 +5,7 @@ import cn.keking.model.FileAttribute;
 import cn.keking.model.ReturnResponse;
 import cn.keking.service.FileHandlerService;
 import cn.keking.service.FilePreview;
-import cn.keking.service.TifToService;
+import cn.keking.service.TifToPdfService;
 import cn.keking.utils.DownloadUtils;
 import cn.keking.utils.KkFileUtils;
 import cn.keking.utils.WebUtils;
@@ -16,7 +16,6 @@ import java.util.List;
 
 /**
  * tiff 图片文件处理
- *
  * @author kl (http://kailing.pub)
  * @since 2021/2/8
  */
@@ -25,8 +24,8 @@ public class TiffFilePreviewImpl implements FilePreview {
 
     private final FileHandlerService fileHandlerService;
     private final OtherFilePreviewImpl otherFilePreview;
-    private final TifToService tiftoservice;
-    public TiffFilePreviewImpl(FileHandlerService fileHandlerService,OtherFilePreviewImpl otherFilePreview,TifToService tiftoservice) {
+    private final TifToPdfService tiftoservice;
+    public TiffFilePreviewImpl(FileHandlerService fileHandlerService,OtherFilePreviewImpl otherFilePreview,TifToPdfService tiftoservice) {
         this.fileHandlerService = fileHandlerService;
         this.otherFilePreview = otherFilePreview;
         this.tiftoservice = tiftoservice;
@@ -47,7 +46,7 @@ public class TiffFilePreviewImpl implements FilePreview {
                 String filePath = response.getContent();
                 if ("pdf".equalsIgnoreCase(tifPreviewType)) {
                     try {
-                        tiftoservice.convertTif2Pdf(filePath, outFilePath);
+                        tiftoservice.convertTif2Pdf(filePath, outFilePath,forceUpdatedCache);
                     } catch (Exception e) {
                         if (e.getMessage().contains("Bad endianness tag (not 0x4949 or 0x4d4d)") ) {
                             model.addAttribute("imgUrls", url);
@@ -59,7 +58,7 @@ public class TiffFilePreviewImpl implements FilePreview {
                     }
                     //是否保留TIFF源文件
                     if (!fileAttribute.isCompressFile() && ConfigConstants.getDeleteSourceFile()) {
-                      //  KkFileUtils.deleteFileByPath(filePath);
+                       KkFileUtils.deleteFileByPath(filePath);
                     }
                     if (ConfigConstants.isCacheEnabled()) {
                         // 加入缓存

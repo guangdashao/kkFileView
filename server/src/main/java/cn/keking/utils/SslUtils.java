@@ -1,8 +1,8 @@
 package cn.keking.utils;
 
 import org.apache.hc.client5.http.config.RequestConfig;
-import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -11,7 +11,8 @@ import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.http.io.SocketConfig;
 import org.apache.hc.core5.util.Timeout;
 
-import javax.net.ssl.*;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.X509TrustManager;
 import java.security.cert.X509Certificate;
 
 /**
@@ -23,40 +24,58 @@ public class SslUtils {
      * 创建忽略SSL验证的HttpClient（适用于HttpClient 5.6）
      */
     public static CloseableHttpClient createHttpClientIgnoreSsl() throws Exception {
-        // 创建自定义的SSL上下文
-        SSLContext sslContext = createIgnoreVerifySSL();
+        return configureHttpClientBuilder(HttpClients.custom(), true, true).build();
+    }
 
-        // 使用SSLConnectionSocketFactoryBuilder构建SSL连接工厂
-        DefaultClientTlsStrategy tlsStrategy = new DefaultClientTlsStrategy(
-                sslContext, NoopHostnameVerifier.INSTANCE);
+    /**
+     * 配置HttpClientBuilder，支持SSL和重定向配置
+     * @param builder HttpClientBuilder
+     * @param ignoreSSL 是否忽略SSL验证
+     * @param enableRedirect 是否启用重定向
+     * @return 配置好的HttpClientBuilder
+     */
+    public static HttpClientBuilder configureHttpClientBuilder(HttpClientBuilder builder,
+                                                               boolean ignoreSSL,
+                                                               boolean enableRedirect) throws Exception {
+        // 配置SSL
+        if (ignoreSSL) {
+            // 创建自定义的SSL上下文
+            SSLContext sslContext = createIgnoreVerifySSL();
 
-        // 使用新的PoolingHttpClientConnectionManagerBuilder构建连接管理器
-        // 使用连接管理器构建器
-        PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
-                .setTlsSocketStrategy(tlsStrategy)
-                .setDefaultSocketConfig(SocketConfig.custom()
-                        .setSoTimeout(Timeout.ofSeconds(10))
-                        .build())
-                .build();
+            // 使用SSLConnectionSocketFactoryBuilder构建SSL连接工厂
+            DefaultClientTlsStrategy tlsStrategy = new DefaultClientTlsStrategy(
+                    sslContext, NoopHostnameVerifier.INSTANCE);
 
-        // 配置连接池参数
-        connectionManager.setMaxTotal(200);
-        connectionManager.setDefaultMaxPerRoute(20);
+            // 使用连接管理器构建器
+            PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                    .setTlsSocketStrategy(tlsStrategy)
+                    .setDefaultSocketConfig(SocketConfig.custom()
+                            .setSoTimeout(Timeout.ofSeconds(10))
+                            .build())
+                    .build();
+
+            // 配置连接池参数
+            connectionManager.setMaxTotal(200);
+            connectionManager.setDefaultMaxPerRoute(20);
+
+            builder.setConnectionManager(connectionManager);
+        }
 
         // 配置请求参数
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectionRequestTimeout(Timeout.ofSeconds(10))
                 .setResponseTimeout(Timeout.ofSeconds(72))
-                .setConnectionRequestTimeout(Timeout.ofSeconds(2))
-                .setRedirectsEnabled(true)
+                .setConnectTimeout(Timeout.ofSeconds(2))
+                .setRedirectsEnabled(enableRedirect)
                 .setMaxRedirects(5)
                 .build();
+        builder.setDefaultRequestConfig(requestConfig);
 
-        return HttpClients.custom()
-                .setConnectionManager(connectionManager)
-                .setDefaultRequestConfig(requestConfig)
-                .setRedirectStrategy(DefaultRedirectStrategy.INSTANCE)
-                .build();
+        if (!enableRedirect) {
+            builder.disableRedirectHandling();
+        }
+
+        return builder;
     }
 
     /**
@@ -84,7 +103,7 @@ public class SslUtils {
             }
         };
 
-        sc.init(null, new TrustManager[]{trustManager}, new java.security.SecureRandom());
+        sc.init(null, new javax.net.ssl.TrustManager[]{trustManager}, new java.security.SecureRandom());
         return sc;
     }
 }

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.mola.galimatias.GalimatiasParseException;
 import org.apache.commons.io.FileUtils;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
@@ -41,7 +42,7 @@ public class DownloadUtils {
     private static final String URL_PARAM_FTP_CONTROL_ENCODING = "ftp.control.encoding";
     private static final String URL_PARAM_FTP_PORT = "ftp.control.port";
     private static final RestTemplate restTemplate = new RestTemplate();
-    private static  final HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
+    private static final HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
     private static final ObjectMapper mapper = new ObjectMapper();
 
 
@@ -51,12 +52,12 @@ public class DownloadUtils {
      * @return 本地文件绝对路径
      */
     public static ReturnResponse<String> downLoad(FileAttribute fileAttribute, String fileName) {
-        // 忽略ssl证书
+
         String urlStr = null;
         try {
             urlStr = fileAttribute.getUrl().replaceAll("\\+", "%20").replaceAll(" ", "%20");
         } catch (Exception e) {
-            logger.error("忽略SSL证书异常:", e);
+            logger.error("处理URL异常:", e);
         }
         ReturnResponse<String> response = new ReturnResponse<>(0, "下载成功!!!", "");
         String realPath = getRelFilePath(fileName, fileAttribute);
@@ -90,7 +91,10 @@ public class DownloadUtils {
             if (!fileAttribute.getSkipDownLoad()) {
                 if (isHttpUrl(url)) {
                     File realFile = new File(realPath);
-                    CloseableHttpClient httpClient = SslUtils.createHttpClientIgnoreSsl();
+
+                    // 创建配置好的HttpClient
+                    CloseableHttpClient httpClient = createConfiguredHttpClient();
+
                     factory.setHttpClient(httpClient);
                     restTemplate.setRequestFactory(factory);
                     RequestCallback requestCallback = request -> {
@@ -111,10 +115,25 @@ public class DownloadUtils {
                             return null;
                         });
                     }  catch (Exception e) {
+                        // 如果是SSL证书错误，给出建议
+                        if (e.getMessage() != null &&
+                                (e.getMessage().contains("SSL") ||
+                                        e.getMessage().contains("证书") ||
+                                        e.getMessage().contains("certificate")) &&
+                                !ConfigConstants.isIgnoreSSL()) {
+                            logger.warn("SSL证书验证失败，建议启用SSL忽略功能或检查证书");
+                        }
                         response.setCode(1);
                         response.setContent(null);
                         response.setMsg("下载失败:" + e);
                         return response;
+                    } finally {
+                        // 确保HttpClient被关闭
+                        try {
+                            httpClient.close();
+                        } catch (IOException e) {
+                            logger.warn("关闭HttpClient失败", e);
+                        }
                     }
                 } else if (isFtpUrl(url)) {
                     String ftpUsername = WebUtils.getUrlParameterReg(fileAttribute.getUrl(), URL_PARAM_FTP_USERNAME);
@@ -145,6 +164,38 @@ public class DownloadUtils {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * 创建根据配置定制的HttpClient
+     */
+    private static CloseableHttpClient createConfiguredHttpClient() throws Exception {
+        org.apache.hc.client5.http.impl.classic.HttpClientBuilder builder = HttpClients.custom();
+
+        // 配置SSL
+        if (ConfigConstants.isIgnoreSSL()) {
+            logger.debug("创建忽略SSL验证的HttpClient");
+            // 如果SslUtils有创建builder的方法就更好了，这里假设我们直接使用SslUtils
+            // 或者我们可以创建一个新的方法来返回配置了忽略SSL的builder
+            return createHttpClientWithConfig();
+        } else {
+            logger.debug("创建标准HttpClient");
+        }
+
+        // 配置重定向
+        if (!ConfigConstants.isEnableRedirect()) {
+            logger.debug("禁用HttpClient重定向");
+            builder.disableRedirectHandling();
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * 创建配置了忽略SSL的HttpClient
+     */
+    private static CloseableHttpClient createHttpClientWithConfig() throws Exception {
+        return SslUtils.createHttpClientIgnoreSsl();
     }
 
 

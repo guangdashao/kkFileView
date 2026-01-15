@@ -23,40 +23,38 @@ public class ConfigConstants {
     }
 
     // ==================================================
-    // 常量定义区
-    // ==================================================
+// 常量定义区（按功能模块分组）
+// ==================================================
 
-    // 缓存配置常量
+    // 1. 缓存配置常量
     public static final String DEFAULT_CACHE_ENABLED = "true";
 
-    // 文件类型配置常量
+    // 2. 文件类型配置常量
     public static final String DEFAULT_TXT_TYPE = "txt,html,htm,asp,jsp,xml,json,properties,md,gitignore,log,java,py,c,cpp,sql,sh,bat,m,bas,prg,cmd,xbrl";
     public static final String DEFAULT_MEDIA_TYPE = "mp3,wav,mp4,flv";
     public static final String DEFAULT_PROHIBIT = "exe,dll";
     public static final String DEFAULT_TIF_PREVIEW_TYPE = "tif";
     public static final String DEFAULT_CAD_PREVIEW_TYPE = "pdf";
 
-    // Office配置常量
+    // 3. Office配置常量
     public static final String DEFAULT_OFFICE_PREVIEW_TYPE = "image";
     public static final String DEFAULT_OFFICE_PREVIEW_SWITCH_DISABLED = "false";
     public static final String DEFAULT_OFFICE_TYPE_WEB = "web";
-    public static final String DEFAULT_OFFICE_PAQERANQE = "false";
+    public static final String DEFAULT_OFFICE_PAQERANQE = "false";  // 注意：拼写错误，应为PAGERANGE
     public static final String DEFAULT_OFFICE_WATERMARK = "false";
     public static final String DEFAULT_OFFICE_QUALITY = "80";
-    public static final String DEFAULT_OFFICE_MAXIMAQERESOLUTION = "150";
+    public static final String DEFAULT_OFFICE_MAXIMAQERESOLUTION = "150";  // 注意：拼写错误，应为MAXIMAGERESOLUTION
     public static final String DEFAULT_OFFICE_EXPORTBOOKMARKS = "true";
     public static final String DEFAULT_OFFICE_EXPORTNOTES = "true";
-    public static final String DEFAULT_OFFICE_EOCUMENTOPENPASSWORDS = "true";
+    public static final String DEFAULT_OFFICE_EOCUMENTOPENPASSWORDS = "true";  // 注意：拼写错误，应为DOCUMENTOPENPASSWORDS
 
-    // FTP配置常量
+    // 4. FTP配置常量
     public static final String DEFAULT_FTP_USERNAME = null;
-    public static final String DEFAULT_FTP_PASSWORD = null;
-    public static final String DEFAULT_FTP_CONTROL_ENCODING = "UTF-8";
 
-    // 路径配置常量
+    // 5. 路径配置常量
     public static final String DEFAULT_VALUE = "default";
 
-    // PDF配置常量
+    // 6. PDF配置常量
     public static final String DEFAULT_PDF_PRESENTATION_MODE_DISABLE = "true";
     public static final String DEFAULT_PDF_OPEN_FILE_DISABLE = "true";
     public static final String DEFAULT_PDF_PRINT_DISABLE = "true";
@@ -64,45 +62,81 @@ public class ConfigConstants {
     public static final String DEFAULT_PDF_BOOKMARK_DISABLE = "true";
     public static final String DEFAULT_PDF_DISABLE_EDITING = "true";
     public static final String DEFAULT_PDF2_JPG_DPI = "105";
-    public static final String DEFAULT_PDF_TIMEOUT = "90";
-    public static final String DEFAULT_PDF_TIMEOUT80 = "180";
-    public static final String DEFAULT_PDF_TIMEOUT200 = "300";
-    public static final String DEFAULT_PDF_THREAD = "5";
 
-    // CAD配置常量
+    // 7. CAD配置常量
     public static final String DEFAULT_CAD_TIMEOUT = "90";
     public static final String DEFAULT_CAD_THREAD = "5";
 
-    // 文件操作配置常量
+    // 8. TIF配置常量
+    public static final String DEFAULT_TIF_TIMEOUT = "90";
+    public static final String DEFAULT_TIF_THREAD = "5";
+
+    // 9. 文件操作配置常量
     public static final String DEFAULT_FILE_UPLOAD_DISABLE = "false";
     public static final String DEFAULT_DELETE_SOURCE_FILE = "true";
     public static final String DEFAULT_DELETE_CAPTCHA = "false";
     public static final String DEFAULT_SIZE = "500MB";
     public static final String DEFAULT_PASSWORD = "123456";
 
-    // 首页配置常量
+    // 10. 首页配置常量
     public static final String DEFAULT_BEIAN = "无";
     public static final String DEFAULT_HOME_PAGENUMBER = "1";
     public static final String DEFAULT_HOME_PAGINATION = "true";
     public static final String DEFAULT_HOME_PAGSIZE = "15";
     public static final String DEFAULT_HOME_SEARCH = "true";
 
-    // 权限配置常量
+    // 11. 权限配置常量
     public static final String DEFAULT_KEY = "false";
     public static final String DEFAULT_PICTURES_PREVIEW = "true";
     public static final String DEFAULT_GET_CORS_FILE = "true";
     public static final String DEFAULT_ADD_TASK = "true";
-    public static final String DEFAULT_AES_KEY= "1234567890123456";
+    public static final String DEFAULT_AES_KEY = "1234567890123456";
 
-    // UserAgent配置常量
+    // 12. UserAgent配置常量
     public static final String DEFAULT_USER_AGENT = "false";
 
-    // Basic认证配置常量
+    // 13. Basic认证配置常量
     public static final String DEFAULT_BASIC_NAME = "";
 
+    // 14. 视频转换配置常量
+    public static final String DEFAULT_MEDIA_CONVERT_MAX_SIZE = "300";
+    public static final String DEFAULT_MEDIA_TIMEOUT_ENABLED = "true";
+    public static final String DEFAULT_MEDIA_SMALL_FILE_TIMEOUT = "30";
+    public static final String DEFAULT_MEDIA_MEDIUM_FILE_TIMEOUT = "60";
+    public static final String DEFAULT_MEDIA_LARGE_FILE_TIMEOUT = "180";
+    public static final String DEFAULT_MEDIA_XL_FILE_TIMEOUT = "300";
+    public static final String DEFAULT_MEDIA_XXL_FILE_TIMEOUT = "600";
+    public static final String DEFAULT_MEDIA_XXXL_FILE_TIMEOUT = "1200";
+
+    // 15. PDF DPI配置常量
+    public static final String DEFAULT_PDF_SMALL_DTI = "150";     // 注意：拼写错误，应为DPI
+    public static final String DEFAULT_PDF_MEDIUM_DPI = "120";
+    public static final String DEFAULT_PDF_LARGE_DPI = "96";
+    public static final String DEFAULT_PDF_XLARGE_DPI = "72";
+    public static final String DEFAULT_PDF_XXLARGE_DPI = "72";
+    public static final String DEFAULT_PDF_DPI_ENABLED = "true";
+
+    // 16. PDF超时配置常量（新标准化配置）
+    public static final String DEFAULT_PDF_TIMEOUT_SMALL = "90";
+    public static final String DEFAULT_PDF_TIMEOUT_MEDIUM = "180";
+    public static final String DEFAULT_PDF_TIMEOUT_LARGE = "300";
+    public static final String DEFAULT_PDF_TIMEOUT_XLARGE = "600";
+
+    // 17. PDF线程配置常量
+    public static final String DEFAULT_PDF_MAX_THREADS = "10";
+
+    // 18. CAD水印配置常量
+    public static final String DEFAULT_CAD_WATERMARK = "false";
+
+    // 19. SSL忽略配置常量
+    public static final String DEFAULT_IGNORE_SSL = "true";
+
+    // 20. 重定向启用配置常量
+    public static final String DEFAULT_ENABLE_REDIRECT = "true";
+
     // ==================================================
-    // 配置变量定义区（按功能分类）
-    // ==================================================
+// 配置变量定义区（按功能分类，均为静态变量）
+// ==================================================
 
     // 1. 缓存配置
     private static Boolean cacheEnabled;
@@ -130,8 +164,6 @@ public class ConfigConstants {
 
     // 4. FTP配置
     private static String ftpUsername;
-    private static String ftpPassword;
-    private static String ftpControlEncoding;
 
     // 5. 路径配置
     private static String fileDir = ConfigUtils.getHomePath() + File.separator + "file" + File.separator;
@@ -150,45 +182,132 @@ public class ConfigConstants {
     private static String pdfDownloadDisable;
     private static String pdfBookmarkDisable;
     private static int pdf2JpgDpi;
-    private static int pdfTimeout;
-    private static int pdfTimeout80;
-    private static int pdfTimeout200;
-    private static int pdfThread;
 
     // 8. CAD配置
     private static String cadTimeout;
     private static int cadThread;
 
-    // 9. 文件操作配置
+    // 9. TIF配置
+    private static String tifTimeout;
+    private static int tifThread;
+
+    // 10. 文件操作配置
     private static Boolean fileUploadDisable;
     private static String size;
     private static String password;
     private static Boolean deleteSourceFile;
     private static Boolean deleteCaptcha;
 
-    // 10. 首页配置
+    // 11. 首页配置
     private static String beian;
     private static String homePageNumber;
     private static String homePagination;
     private static String homePageSize;
     private static String homeSearch;
 
-    // 11. 权限配置
+    // 12. 权限配置
     private static String key;
     private static boolean picturesPreview;
     private static boolean getCorsFile;
     private static boolean addTask;
     private static String aesKey;
 
-    // 12. UserAgent配置
+    // 13. UserAgent配置
     private static String userAgent;
 
-    // 13. Basic认证配置
+    // 14. Basic认证配置
     private static String basicName;
 
+    // 15. 视频转换配置
+    private static int mediaConvertMaxSize;
+    private static boolean mediaTimeoutEnabled;
+    private static int mediaSmallFileTimeout;
+    private static int mediaMediumFileTimeout;
+    private static int mediaLargeFileTimeout;
+    private static int mediaXLFileTimeout;
+    private static int mediaXXLFileTimeout;
+    private static int mediaXXXLFileTimeout;
+
+    // 16. PDF DPI配置
+    private static boolean pdfDpiEnabled;
+    private static int pdfSmallDpi;
+    private static int pdfMediumDpi;
+    private static int pdfLargeDpi;
+    private static int pdfXLargeDpi;
+    private static int pdfXXLargeDpi;
+
+    // 17. PDF超时配置（新）
+    private static int pdfTimeoutSmall;
+    private static int pdfTimeoutMedium;
+    private static int pdfTimeoutLarge;
+    private static int pdfTimeoutXLarge;
+
+    // 18. PDF线程配置
+    private static int pdfMaxThreads;
+
+    // 19. CAD水印配置
+    private static Boolean cadwatermark;
+
+    // 20. SSL忽略配置
+    private static Boolean ignoreSSL;
+
+    // 21. 重定向启用配置
+    private static Boolean enableRedirect;
+
+
     // ==================================================
-    // 获取方法（按功能分类）
-    // ==================================================
+// 获取方法（按功能分类）
+// ==================================================
+
+    /**
+     * PDF超时配置获取方法（新）
+     */
+    public static int getPdfTimeoutSmall() {
+        return pdfTimeoutSmall;
+    }
+
+    public static int getPdfTimeoutMedium() {
+        return pdfTimeoutMedium;
+    }
+
+    public static int getPdfTimeoutLarge() {
+        return pdfTimeoutLarge;
+    }
+
+    public static int getPdfTimeoutXLarge() {
+        return pdfTimeoutXLarge;
+    }
+
+    public static int getPdfMaxThreads() {
+        return pdfMaxThreads;
+    }
+
+    /**
+     * 根据页数获取优化的DPI值
+     * 智能DPI调整策略：
+     * - 0-50页: 150 DPI
+     * - 51-100页: 120 DPI
+     * - 101-200页: 96 DPI
+     * - 201-500页: 72 DPI
+     * - >500页: 72 DPI
+     */
+    public static int getOptimizedDpi(int pageCount) {
+        if (!pdfDpiEnabled) {
+            return ConfigConstants.getPdf2JpgDpi();
+        }
+
+        if (pageCount > 500) {
+            return pdfXXLargeDpi;
+        } else if (pageCount > 200) {
+            return pdfXLargeDpi;
+        } else if (pageCount > 100) {
+            return pdfLargeDpi;
+        } else if (pageCount > 50) {
+            return pdfMediumDpi;
+        } else {
+            return pdfSmallDpi;
+        }
+    }
 
     // 1. 缓存配置获取方法
     public static Boolean isCacheEnabled() {
@@ -266,14 +385,6 @@ public class ConfigConstants {
         return ftpUsername;
     }
 
-    public static String getFtpPassword() {
-        return ftpPassword;
-    }
-
-    public static String getFtpControlEncoding() {
-        return ftpControlEncoding;
-    }
-
     // 5. 路径配置获取方法
     public static String getBaseUrl() {
         return baseUrl;
@@ -325,22 +436,6 @@ public class ConfigConstants {
         return pdf2JpgDpi;
     }
 
-    public static int getPdfTimeout() {
-        return pdfTimeout;
-    }
-
-    public static int getPdfTimeout80() {
-        return pdfTimeout80;
-    }
-
-    public static int getPdfTimeout200() {
-        return pdfTimeout200;
-    }
-
-    public static int getPdfThread() {
-        return pdfThread;
-    }
-
     // 8. CAD配置获取方法
     public static String getCadPreviewType() {
         return cadPreviewType;
@@ -354,7 +449,16 @@ public class ConfigConstants {
         return cadThread;
     }
 
-    // 9. 文件操作配置获取方法
+    // 9. TIF配置获取方法
+    public static String getTifTimeout() {
+        return tifTimeout;
+    }
+
+    public static int getTifThread() {
+        return tifThread;
+    }
+
+    // 10. 文件操作配置获取方法
     public static Boolean getFileUploadDisable() {
         return fileUploadDisable;
     }
@@ -375,7 +479,7 @@ public class ConfigConstants {
         return deleteCaptcha;
     }
 
-    // 10. 首页配置获取方法
+    // 11. 首页配置获取方法
     public static String getBeian() {
         return beian;
     }
@@ -396,7 +500,7 @@ public class ConfigConstants {
         return homeSearch;
     }
 
-    // 11. 权限配置获取方法
+    // 12. 权限配置获取方法
     public static String getKey() {
         return key;
     }
@@ -417,19 +521,67 @@ public class ConfigConstants {
         return aesKey;
     }
 
-    // 12. UserAgent配置获取方法
+    // 13. UserAgent配置获取方法
     public static String getUserAgent() {
         return userAgent;
     }
 
-    // 13. Basic认证配置获取方法
+    // 14. Basic认证配置获取方法
     public static String getBasicName() {
         return basicName;
     }
 
-    // ==================================================
-    // Setter方法（按功能分类）
-    // ==================================================
+    // 15. 视频转换配置获取方法
+    public static int getMediaConvertMaxSize() {
+        return mediaConvertMaxSize;
+    }
+
+    public static boolean isMediaTimeoutEnabled() {
+        return mediaTimeoutEnabled;
+    }
+
+    public static int getMediaSmallFileTimeout() {
+        return mediaSmallFileTimeout;
+    }
+
+    public static int getMediaMediumFileTimeout() {
+        return mediaMediumFileTimeout;
+    }
+
+    public static int getMediaLargeFileTimeout() {
+        return mediaLargeFileTimeout;
+    }
+
+    public static int getMediaXLFileTimeout() {
+        return mediaXLFileTimeout;
+    }
+
+    public static int getMediaXXLFileTimeout() {
+        return mediaXXLFileTimeout;
+    }
+
+    public static int getMediaXXXLFileTimeout() {
+        return mediaXXXLFileTimeout;
+    }
+
+    // 19. CAD水印配置获取方法
+    public static boolean getCadwatermark() {
+        return cadwatermark;
+    }
+
+    // 20. SSL忽略配置获取方法
+    public static boolean isIgnoreSSL() {
+        return ignoreSSL;
+    }
+
+    // 21. 重定向启用配置获取方法
+    public static boolean isEnableRedirect() {
+        return enableRedirect;
+    }
+
+// ==================================================
+// Setter方法（按功能分类）
+// ==================================================
 
     // 1. 缓存配置Setter方法
     @Value("${cache.enabled:true}")
@@ -610,24 +762,6 @@ public class ConfigConstants {
         ConfigConstants.ftpUsername = ftpUsername;
     }
 
-    @Value("${ftp.password:}")
-    public void setFtpPassword(String ftpPassword) {
-        setFtpPasswordValue(ftpPassword);
-    }
-
-    public static void setFtpPasswordValue(String ftpPassword) {
-        ConfigConstants.ftpPassword = ftpPassword;
-    }
-
-    @Value("${ftp.control.encoding:UTF-8}")
-    public void setFtpControlEncoding(String ftpControlEncoding) {
-        setFtpControlEncodingValue(ftpControlEncoding);
-    }
-
-    public static void setFtpControlEncodingValue(String ftpControlEncoding) {
-        ConfigConstants.ftpControlEncoding = ftpControlEncoding;
-    }
-
     // 5. 路径配置Setter方法
     @Value("${base.url:default}")
     public void setBaseUrl(String baseUrl) {
@@ -685,11 +819,15 @@ public class ConfigConstants {
         setNotTrustHostSet(getHostValue(notTrustHost));
     }
 
+    /**
+     * 解析主机配置值
+     * 支持格式：host1,host2,host3
+     * 自动转换为小写并移除空格
+     */
     private static CopyOnWriteArraySet<String> getHostValue(String trustHost) {
         if (DEFAULT_VALUE.equalsIgnoreCase(trustHost)) {
             return new CopyOnWriteArraySet<>();
         } else {
-            // 去除空格并转小写
             String[] trustHostArray = trustHost.toLowerCase().replaceAll("\\s+", "").split(",");
             return new CopyOnWriteArraySet<>(Arrays.asList(trustHostArray));
         }
@@ -767,42 +905,6 @@ public class ConfigConstants {
         ConfigConstants.pdf2JpgDpi = pdf2JpgDpi;
     }
 
-    @Value("${pdf.timeout:90}")
-    public void setPdfTimeout(int pdfTimeout) {
-        setPdfTimeoutValue(pdfTimeout);
-    }
-
-    public static void setPdfTimeoutValue(int pdfTimeout) {
-        ConfigConstants.pdfTimeout = pdfTimeout;
-    }
-
-    @Value("${pdf.timeout80:180}")
-    public void setPdfTimeout80(int pdfTimeout80) {
-        setPdfTimeout80Value(pdfTimeout80);
-    }
-
-    public static void setPdfTimeout80Value(int pdfTimeout80) {
-        ConfigConstants.pdfTimeout80 = pdfTimeout80;
-    }
-
-    @Value("${pdf.timeout200:300}")
-    public void setPdfTimeout200(int pdfTimeout200) {
-        setPdfTimeout200Value(pdfTimeout200);
-    }
-
-    public static void setPdfTimeout200Value(int pdfTimeout200) {
-        ConfigConstants.pdfTimeout200 = pdfTimeout200;
-    }
-
-    @Value("${pdf.thread:5}")
-    public void setPdfThread(int pdfThread) {
-        setPdfThreadValue(pdfThread);
-    }
-
-    public static void setPdfThreadValue(int pdfThread) {
-        ConfigConstants.pdfThread = pdfThread;
-    }
-
     // 8. CAD配置Setter方法
     @Value("${cad.timeout:90}")
     public void setCadTimeout(String cadTimeout) {
@@ -822,7 +924,26 @@ public class ConfigConstants {
         ConfigConstants.cadThread = cadThread;
     }
 
-    // 9. 文件操作配置Setter方法
+    // 9. TIF配置Setter方法
+    @Value("${tif.timeout:90}")
+    public void setTifTimeout(String tifTimeout) {
+        setTifTimeoutValue(tifTimeout);
+    }
+
+    public static void setTifTimeoutValue(String tifTimeout) {
+        ConfigConstants.tifTimeout = tifTimeout;
+    }
+
+    @Value("${tif.thread:5}")
+    public void setTifThread(int tifThread) {
+        setTifThreadValue(tifThread);
+    }
+
+    public static void setTifThreadValue(int tifThread) {
+        ConfigConstants.tifThread = tifThread;
+    }
+
+    // 10. 文件操作配置Setter方法
     @Value("${file.upload.disable:true}")
     public void setFileUploadDisable(Boolean fileUploadDisable) {
         setFileUploadDisableValue(fileUploadDisable);
@@ -868,7 +989,7 @@ public class ConfigConstants {
         ConfigConstants.deleteCaptcha = deleteCaptcha;
     }
 
-    // 10. 首页配置Setter方法
+    // 11. 首页配置Setter方法
     @Value("${beian:default}")
     public void setBeian(String beian) {
         setBeianValue(beian);
@@ -914,7 +1035,7 @@ public class ConfigConstants {
         ConfigConstants.homeSearch = homeSearch;
     }
 
-    // 11. 权限配置Setter方法
+    // 12. 权限配置Setter方法
     @Value("${kk.Key:}")
     public void setKey(String key) {
         setKeyValue(key);
@@ -960,7 +1081,7 @@ public class ConfigConstants {
         ConfigConstants.aesKey = aesKey;
     }
 
-    // 12. UserAgent配置Setter方法
+    // 13. UserAgent配置Setter方法
     @Value("${useragent:false}")
     public void setUserAgent(String userAgent) {
         setUserAgentValue(userAgent);
@@ -970,7 +1091,7 @@ public class ConfigConstants {
         ConfigConstants.userAgent = userAgent;
     }
 
-    // 13. Basic认证配置Setter方法
+    // 14. Basic认证配置Setter方法
     @Value("${basic.name:}")
     public void setBasicName(String basicName) {
         setBasicNameValue(basicName);
@@ -978,5 +1099,210 @@ public class ConfigConstants {
 
     public static void setBasicNameValue(String basicName) {
         ConfigConstants.basicName = basicName;
+    }
+
+    // 15. 视频转换配置Setter方法
+    @Value("${media.convert.max.size:300}")
+    public void setMediaConvertMaxSize(int mediaConvertMaxSize) {
+        setMediaConvertMaxSizeValue(mediaConvertMaxSize);
+    }
+
+    public static void setMediaConvertMaxSizeValue(int mediaConvertMaxSize) {
+        ConfigConstants.mediaConvertMaxSize = mediaConvertMaxSize;
+    }
+
+    @Value("${media.timeout.enabled:true}")
+    public void setMediaTimeoutEnabled(String mediaTimeoutEnabled) {
+        setMediaTimeoutEnabledValue(Boolean.parseBoolean(mediaTimeoutEnabled));
+    }
+
+    public static void setMediaTimeoutEnabledValue(boolean mediaTimeoutEnabled) {
+        ConfigConstants.mediaTimeoutEnabled = mediaTimeoutEnabled;
+    }
+
+    @Value("${media.small.file.timeout:30}")
+    public void setMediaSmallFileTimeout(int mediaSmallFileTimeout) {
+        setMediaSmallFileTimeoutValue(mediaSmallFileTimeout);
+    }
+
+    public static void setMediaSmallFileTimeoutValue(int mediaSmallFileTimeout) {
+        ConfigConstants.mediaSmallFileTimeout = mediaSmallFileTimeout;
+    }
+
+    @Value("${media.medium.file.timeout:60}")
+    public void setMediaMediumFileTimeout(int mediaMediumFileTimeout) {
+        setMediaMediumFileTimeoutValue(mediaMediumFileTimeout);
+    }
+
+    public static void setMediaMediumFileTimeoutValue(int mediaMediumFileTimeout) {
+        ConfigConstants.mediaMediumFileTimeout = mediaMediumFileTimeout;
+    }
+
+    @Value("${media.large.file.timeout:180}")
+    public void setMediaLargeFileTimeout(int mediaLargeFileTimeout) {
+        setMediaLargeFileTimeoutValue(mediaLargeFileTimeout);
+    }
+
+    public static void setMediaLargeFileTimeoutValue(int mediaLargeFileTimeout) {
+        ConfigConstants.mediaLargeFileTimeout = mediaLargeFileTimeout;
+    }
+
+    @Value("${media.xl.file.timeout:300}")
+    public void setMediaXLFileTimeout(int mediaXLFileTimeout) {
+        setMediaXLFileTimeoutValue(mediaXLFileTimeout);
+    }
+
+    public static void setMediaXLFileTimeoutValue(int mediaXLFileTimeout) {
+        ConfigConstants.mediaXLFileTimeout = mediaXLFileTimeout;
+    }
+
+    @Value("${media.xxl.file.timeout:600}")
+    public void setMediaXXLFileTimeout(int mediaXXLFileTimeout) {
+        setMediaXXLFileTimeoutValue(mediaXXLFileTimeout);
+    }
+
+    public static void setMediaXXLFileTimeoutValue(int mediaXXLFileTimeout) {
+        ConfigConstants.mediaXXLFileTimeout = mediaXXLFileTimeout;
+    }
+
+    @Value("${media.xxxl.file.timeout:1200}")
+    public void setMediaXXXLFileTimeout(int mediaXXXLFileTimeout) {
+        setMediaXXXLFileTimeoutValue(mediaXXXLFileTimeout);
+    }
+
+    public static void setMediaXXXLFileTimeoutValue(int mediaXXXLFileTimeout) {
+        ConfigConstants.mediaXXXLFileTimeout = mediaXXXLFileTimeout;
+    }
+
+    // 16. PDF DPI配置Setter方法
+    @Value("${pdf.dpi.enabled:true}")
+    public void setPdfDpiEnabled(String pdfDpiEnabled) {
+        setPdfDpiEnabledValue(Boolean.parseBoolean(pdfDpiEnabled));
+    }
+
+    public static void setPdfDpiEnabledValue(boolean pdfDpiEnabled) {
+        ConfigConstants.pdfDpiEnabled = pdfDpiEnabled;
+    }
+
+    @Value("${pdf.dpi.small:150}")
+    public void setPdfSmallDpi(int pdfSmallDpi) {
+        setPdfSmallDpiValue(pdfSmallDpi);
+    }
+
+    public static void setPdfSmallDpiValue(int pdfSmallDpi) {
+        ConfigConstants.pdfSmallDpi = pdfSmallDpi;
+    }
+
+    @Value("${pdf.dpi.medium:120}")
+    public void setPdfMediumDpi(int pdfMediumDpi) {
+        setPdfMediumDpiValue(pdfMediumDpi);
+    }
+
+    public static void setPdfMediumDpiValue(int pdfMediumDpi) {
+        ConfigConstants.pdfMediumDpi = pdfMediumDpi;
+    }
+
+    @Value("${pdf.dpi.large:96}")
+    public void setPdfLargeDpi(int pdfLargeDpi) {
+        setPdfLargeDpiValue(pdfLargeDpi);
+    }
+
+    public static void setPdfLargeDpiValue(int pdfLargeDpi) {
+        ConfigConstants.pdfLargeDpi = pdfLargeDpi;
+    }
+
+    @Value("${pdf.dpi.xlarge:72}")
+    public void setPdfXLargeDpi(int pdfXLargeDpi) {
+        setPdfXLargeDpiValue(pdfXLargeDpi);
+    }
+
+    public static void setPdfXLargeDpiValue(int pdfXLargeDpi) {
+        ConfigConstants.pdfXLargeDpi = pdfXLargeDpi;
+    }
+
+    @Value("${pdf.dpi.xxlarge:72}")
+    public void setPdfXXLargeDpi(int pdfXXLargeDpi) {
+        setPdfXXLargeDpiValue(pdfXXLargeDpi);
+    }
+
+    public static void setPdfXXLargeDpiValue(int pdfXXLargeDpi) {
+        ConfigConstants.pdfXXLargeDpi = pdfXXLargeDpi;
+    }
+
+    // 17. PDF超时配置Setter方法（新）
+    @Value("${pdf.timeout.small:90}")
+    public void setPdfTimeoutSmall(int pdfTimeoutSmall) {
+        setPdfTimeoutSmallValue(pdfTimeoutSmall);
+    }
+
+    public static void setPdfTimeoutSmallValue(int pdfTimeoutSmall) {
+        ConfigConstants.pdfTimeoutSmall = pdfTimeoutSmall;
+    }
+
+    @Value("${pdf.timeout.medium:180}")
+    public void setPdfTimeoutMedium(int pdfTimeoutMedium) {
+        setPdfTimeoutMediumValue(pdfTimeoutMedium);
+    }
+
+    public static void setPdfTimeoutMediumValue(int pdfTimeoutMedium) {
+        ConfigConstants.pdfTimeoutMedium = pdfTimeoutMedium;
+    }
+
+    @Value("${pdf.timeout.large:300}")
+    public void setPdfTimeoutLarge(int pdfTimeoutLarge) {
+        setPdfTimeoutLargeValue(pdfTimeoutLarge);
+    }
+
+    public static void setPdfTimeoutLargeValue(int pdfTimeoutLarge) {
+        ConfigConstants.pdfTimeoutLarge = pdfTimeoutLarge;
+    }
+
+    @Value("${pdf.timeout.xlarge:600}")
+    public void setPdfTimeoutXLarge(int pdfTimeoutXLarge) {
+        setPdfTimeoutXLargeValue(pdfTimeoutXLarge);
+    }
+
+    public static void setPdfTimeoutXLargeValue(int pdfTimeoutXLarge) {
+        ConfigConstants.pdfTimeoutXLarge = pdfTimeoutXLarge;
+    }
+
+    // 18. PDF线程配置Setter方法
+    @Value("${pdf.max.threads:10}")
+    public void setPdfMaxThreads(int pdfMaxThreads) {
+        setPdfMaxThreadsValue(pdfMaxThreads);
+    }
+
+    public static void setPdfMaxThreadsValue(int pdfMaxThreads) {
+        ConfigConstants.pdfMaxThreads = pdfMaxThreads;
+    }
+
+    // 19. CAD水印配置Setter方法
+    @Value("${cad.watermark:false}")
+    public void setCadwatermark(String cadwatermark) {
+        setCadwatermarkValue(Boolean.parseBoolean(cadwatermark));
+    }
+
+    public static void setCadwatermarkValue(Boolean cadwatermark) {
+        ConfigConstants.cadwatermark = cadwatermark;
+    }
+
+    // 20. SSL忽略配置Setter方法
+    @Value("${kk.ignore.ssl:true}")
+    public void setIgnoreSSL(String ignoreSSL) {
+        setIgnoreSSLValue(Boolean.parseBoolean(ignoreSSL));
+    }
+
+    public static void setIgnoreSSLValue(Boolean ignoreSSL) {
+        ConfigConstants.ignoreSSL = ignoreSSL;
+    }
+
+    // 21. 重定向启用配置Setter方法
+    @Value("${kk.enable.redirect:true}")
+    public void setEnableRedirect(String enableRedirect) {
+        setEnableRedirectValue(Boolean.parseBoolean(enableRedirect));
+    }
+
+    public static void setEnableRedirectValue(Boolean enableRedirect) {
+        ConfigConstants.enableRedirect = enableRedirect;
     }
 }

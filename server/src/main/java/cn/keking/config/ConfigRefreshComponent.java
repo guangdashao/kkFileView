@@ -15,35 +15,38 @@ import java.util.Properties;
 import java.util.concurrent.*;
 
 /**
- * @auther: chenjh
- * @time: 2019/4/10 16:16
- * @description 使用 WatchService 监听配置文件变化，实现事件驱动的配置更新
+ * 配置刷新组件 - 动态配置管理
+ * 功能：监听配置文件变化，实现热更新配置
  */
 @Component
 public class ConfigRefreshComponent {
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigRefreshComponent.class);
 
+    // 线程池和任务调度器
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final ExecutorService watchServiceExecutor = Executors.newSingleThreadExecutor();
     private final Object lock = new Object();
 
-    // 防抖延迟时间（单位：秒）
+    // 防抖延迟时间（秒）
     private static final long DEBOUNCE_DELAY_SECONDS = 5;
 
+    // 任务和状态管理
     private ScheduledFuture<?> scheduledReloadTask;
     private WatchService watchService;
     private volatile boolean running = true;
 
+    /**
+     * 初始化方法 - 启动配置监听
+     */
     @PostConstruct
     void init() {
-        // 初始化时立即加载一次配置
         loadConfig();
-
-        // 启动监听线程
         watchServiceExecutor.submit(this::watchConfigFile);
     }
 
+    /**
+     * 销毁方法 - 清理资源
+     */
     @PreDestroy
     void destroy() {
         running = false;
@@ -74,8 +77,6 @@ public class ConfigRefreshComponent {
             }
 
             watchService = FileSystems.getDefault().newWatchService();
-
-            // 注册监听目录的修改事件
             configDir.register(watchService,
                     StandardWatchEventKinds.ENTRY_MODIFY,
                     StandardWatchEventKinds.ENTRY_CREATE,
@@ -91,7 +92,6 @@ public class ConfigRefreshComponent {
                         WatchEvent.Kind<?> kind = event.kind();
                         Path changedPath = (Path) event.context();
 
-                        // 检查是否是目标配置文件的变化
                         if (changedPath.equals(configPath.getFileName())) {
                             handleConfigChange(kind);
                         }
@@ -131,7 +131,6 @@ public class ConfigRefreshComponent {
         if (kind == StandardWatchEventKinds.ENTRY_MODIFY ||
                 kind == StandardWatchEventKinds.ENTRY_CREATE) {
 
-            // 使用防抖机制：取消之前的任务，重新调度新任务
             synchronized (lock) {
                 if (scheduledReloadTask != null && !scheduledReloadTask.isDone()) {
                     scheduledReloadTask.cancel(false);
@@ -158,7 +157,6 @@ public class ConfigRefreshComponent {
                 Properties properties = new Properties();
                 String configFilePath = ConfigUtils.getCustomizedConfigPath();
 
-                // 检查文件是否存在
                 Path configPath = Paths.get(configFilePath);
                 if (!Files.exists(configPath)) {
                     LOGGER.warn("配置文件不存在: {}", configFilePath);
@@ -169,7 +167,6 @@ public class ConfigRefreshComponent {
                     properties.load(bufferedReader);
                     ConfigUtils.restorePropertiesFromEnvFormat(properties);
 
-                    // 解析并设置配置项
                     updateConfigConstants(properties);
                     setWatermarkConfig(properties);
 
@@ -181,6 +178,7 @@ public class ConfigRefreshComponent {
             }
         }
     }
+
     /**
      * 更新配置常量
      */
@@ -213,8 +211,6 @@ public class ConfigRefreshComponent {
 
         // 4. FTP配置
         String ftpUsername = properties.getProperty("ftp.username", ConfigConstants.DEFAULT_FTP_USERNAME);
-        String ftpPassword = properties.getProperty("ftp.password", ConfigConstants.DEFAULT_FTP_PASSWORD);
-        String ftpControlEncoding = properties.getProperty("ftp.control.encoding", ConfigConstants.DEFAULT_FTP_CONTROL_ENCODING);
 
         // 5. 路径配置
         String baseUrl = properties.getProperty("base.url", ConfigConstants.DEFAULT_VALUE);
@@ -231,10 +227,6 @@ public class ConfigRefreshComponent {
         String pdfBookmarkDisable = properties.getProperty("pdf.bookmark.disable", ConfigConstants.DEFAULT_PDF_BOOKMARK_DISABLE);
         String pdfDisableEditing = properties.getProperty("pdf.disable.editing", ConfigConstants.DEFAULT_PDF_DISABLE_EDITING);
         int pdf2JpgDpi = Integer.parseInt(properties.getProperty("pdf2jpg.dpi", ConfigConstants.DEFAULT_PDF2_JPG_DPI));
-        int pdfTimeout = Integer.parseInt(properties.getProperty("pdf.timeout", ConfigConstants.DEFAULT_PDF_TIMEOUT));
-        int pdfTimeout80 = Integer.parseInt(properties.getProperty("pdf.timeout80", ConfigConstants.DEFAULT_PDF_TIMEOUT80));
-        int pdfTimeout200 = Integer.parseInt(properties.getProperty("pdf.timeout200", ConfigConstants.DEFAULT_PDF_TIMEOUT200));
-        int pdfThread = Integer.parseInt(properties.getProperty("pdf.thread", ConfigConstants.DEFAULT_PDF_THREAD));
 
         // 8. CAD配置
         String cadTimeout = properties.getProperty("cad.timeout", ConfigConstants.DEFAULT_CAD_TIMEOUT);
@@ -247,24 +239,65 @@ public class ConfigRefreshComponent {
         boolean deleteSourceFile = Boolean.parseBoolean(properties.getProperty("delete.source.file", ConfigConstants.DEFAULT_DELETE_SOURCE_FILE));
         boolean deleteCaptcha = Boolean.parseBoolean(properties.getProperty("delete.captcha", ConfigConstants.DEFAULT_DELETE_CAPTCHA));
 
-        // 10. 首页配置
+        // 10. TIF配置
+        String tifTimeout = properties.getProperty("tif.timeout", ConfigConstants.DEFAULT_TIF_TIMEOUT);
+        int tifThread = Integer.parseInt(properties.getProperty("tif.thread", ConfigConstants.DEFAULT_TIF_THREAD));
+
+        // 11. 首页配置
         String beian = properties.getProperty("beian", ConfigConstants.DEFAULT_BEIAN);
         String homePageNumber = properties.getProperty("home.pagenumber", ConfigConstants.DEFAULT_HOME_PAGENUMBER);
         String homePagination = properties.getProperty("home.pagination", ConfigConstants.DEFAULT_HOME_PAGINATION);
         String homePageSize = properties.getProperty("home.pagesize", ConfigConstants.DEFAULT_HOME_PAGSIZE);
         String homeSearch = properties.getProperty("home.search", ConfigConstants.DEFAULT_HOME_SEARCH);
 
-        // 11. 权限配置
+        // 12. 权限配置
         String key = properties.getProperty("kk.Key", ConfigConstants.DEFAULT_KEY);
         boolean picturesPreview = Boolean.parseBoolean(properties.getProperty("kk.Picturespreview", ConfigConstants.DEFAULT_PICTURES_PREVIEW));
         boolean getCorsFile = Boolean.parseBoolean(properties.getProperty("kk.Getcorsfile", ConfigConstants.DEFAULT_GET_CORS_FILE));
         boolean addTask = Boolean.parseBoolean(properties.getProperty("kk.addTask", ConfigConstants.DEFAULT_ADD_TASK));
         String aesKey = properties.getProperty("ase.key", ConfigConstants.DEFAULT_AES_KEY);
-        // 12. UserAgent配置
+
+        // 13. UserAgent配置
         String userAgent = properties.getProperty("useragent", ConfigConstants.DEFAULT_USER_AGENT);
 
-       // 13. Basic认证配置
+        // 14. Basic认证配置
         String basicName = properties.getProperty("basic.name", ConfigConstants.DEFAULT_BASIC_NAME);
+
+        // 15. 视频转换配置
+        int mediaConvertMaxSize = Integer.parseInt(properties.getProperty("media.convert.max.size", ConfigConstants.DEFAULT_MEDIA_CONVERT_MAX_SIZE));
+        boolean mediaTimeoutEnabled = Boolean.parseBoolean(properties.getProperty("media.timeout.enabled", ConfigConstants.DEFAULT_MEDIA_TIMEOUT_ENABLED));
+        int mediaSmallFileTimeout = Integer.parseInt(properties.getProperty("media.small.file.timeout", ConfigConstants.DEFAULT_MEDIA_SMALL_FILE_TIMEOUT));
+        int mediaMediumFileTimeout = Integer.parseInt(properties.getProperty("media.medium.file.timeout", ConfigConstants.DEFAULT_MEDIA_MEDIUM_FILE_TIMEOUT));
+        int mediaLargeFileTimeout = Integer.parseInt(properties.getProperty("media.large.file.timeout", ConfigConstants.DEFAULT_MEDIA_LARGE_FILE_TIMEOUT));
+        int mediaXLFileTimeout = Integer.parseInt(properties.getProperty("media.xl.file.timeout", ConfigConstants.DEFAULT_MEDIA_XL_FILE_TIMEOUT));
+        int mediaXXLFileTimeout = Integer.parseInt(properties.getProperty("media.xxl.file.timeout", ConfigConstants.DEFAULT_MEDIA_XXL_FILE_TIMEOUT));
+        int mediaXXXLFileTimeout = Integer.parseInt(properties.getProperty("media.xxxl.file.timeout", ConfigConstants.DEFAULT_MEDIA_XXXL_FILE_TIMEOUT));
+
+        // 16. PDF DPI配置
+        boolean pdfDpiEnabled = Boolean.parseBoolean(properties.getProperty("pdf.dpi.enabled", ConfigConstants.DEFAULT_PDF_DPI_ENABLED).trim());
+        int pdfSmallDpi = Integer.parseInt(properties.getProperty("pdf.dpi.small", ConfigConstants.DEFAULT_PDF_SMALL_DTI).trim());
+        int pdfMediumDpi = Integer.parseInt(properties.getProperty("pdf.dpi.medium", ConfigConstants.DEFAULT_PDF_MEDIUM_DPI).trim());
+        int pdfLargeDpi = Integer.parseInt(properties.getProperty("pdf.dpi.large", ConfigConstants.DEFAULT_PDF_LARGE_DPI).trim());
+        int pdfXLargeDpi = Integer.parseInt(properties.getProperty("pdf.dpi.xlarge", ConfigConstants.DEFAULT_PDF_XLARGE_DPI).trim());
+        int pdfXXLargeDpi = Integer.parseInt(properties.getProperty("pdf.dpi.xxlarge", ConfigConstants.DEFAULT_PDF_XXLARGE_DPI).trim());
+
+        // 17. PDF超时配置（新）
+        int pdfTimeoutSmall = Integer.parseInt(properties.getProperty("pdf.timeout.small", ConfigConstants.DEFAULT_PDF_TIMEOUT_SMALL).trim());
+        int pdfTimeoutMedium = Integer.parseInt(properties.getProperty("pdf.timeout.medium", ConfigConstants.DEFAULT_PDF_TIMEOUT_MEDIUM).trim());
+        int pdfTimeoutLarge = Integer.parseInt(properties.getProperty("pdf.timeout.large", ConfigConstants.DEFAULT_PDF_TIMEOUT_LARGE).trim());
+        int pdfTimeoutXLarge = Integer.parseInt(properties.getProperty("pdf.timeout.xlarge", ConfigConstants.DEFAULT_PDF_TIMEOUT_XLARGE).trim());
+
+        // 18. PDF线程配置
+        int pdfMaxThreads = Integer.parseInt(properties.getProperty("pdf.max.threads", ConfigConstants.DEFAULT_PDF_MAX_THREADS).trim());
+
+        // 19. CAD水印配置
+        boolean cadwatermark = Boolean.parseBoolean(properties.getProperty("cad.watermark", ConfigConstants.DEFAULT_CAD_WATERMARK));
+
+        // 20. SSL忽略配置
+        boolean ignoreSSL = Boolean.parseBoolean(properties.getProperty("kk.ignore.ssl", ConfigConstants.DEFAULT_IGNORE_SSL));
+
+        // 21. 重定向启用配置
+        boolean enableRedirect = Boolean.parseBoolean(properties.getProperty("kk.enable.redirect", ConfigConstants.DEFAULT_ENABLE_REDIRECT));
 
         // 设置配置值
         // 1. 缓存配置
@@ -291,8 +324,6 @@ public class ConfigRefreshComponent {
 
         // 4. FTP配置
         ConfigConstants.setFtpUsernameValue(ftpUsername);
-        ConfigConstants.setFtpPasswordValue(ftpPassword);
-        ConfigConstants.setFtpControlEncodingValue(ftpControlEncoding);
 
         // 5. 路径配置
         ConfigConstants.setBaseUrlValue(baseUrl);
@@ -309,10 +340,6 @@ public class ConfigRefreshComponent {
         ConfigConstants.setPdfBookmarkDisableValue(pdfBookmarkDisable);
         ConfigConstants.setPdfDisableEditingValue(pdfDisableEditing);
         ConfigConstants.setPdf2JpgDpiValue(pdf2JpgDpi);
-        ConfigConstants.setPdfTimeoutValue(pdfTimeout);
-        ConfigConstants.setPdfTimeout80Value(pdfTimeout80);
-        ConfigConstants.setPdfTimeout200Value(pdfTimeout200);
-        ConfigConstants.setPdfThreadValue(pdfThread);
 
         // 8. CAD配置
         ConfigConstants.setCadTimeoutValue(cadTimeout);
@@ -325,25 +352,65 @@ public class ConfigRefreshComponent {
         ConfigConstants.setDeleteSourceFileValue(deleteSourceFile);
         ConfigConstants.setDeleteCaptchaValue(deleteCaptcha);
 
-        // 10. 首页配置
+        // 10. TIF配置
+        ConfigConstants.setTifTimeoutValue(tifTimeout);
+        ConfigConstants.setTifThreadValue(tifThread);
+
+        // 11. 首页配置
         ConfigConstants.setBeianValue(beian);
         ConfigConstants.setHomePageNumberValue(homePageNumber);
         ConfigConstants.setHomePaginationValue(homePagination);
         ConfigConstants.setHomePageSizeValue(homePageSize);
         ConfigConstants.setHomeSearchValue(homeSearch);
 
-        // 11. 权限配置
+        // 12. 权限配置
         ConfigConstants.setKeyValue(key);
         ConfigConstants.setPicturesPreviewValue(picturesPreview);
         ConfigConstants.setGetCorsFileValue(getCorsFile);
         ConfigConstants.setAddTaskValue(addTask);
         ConfigConstants.setaesKeyValue(aesKey);
 
-        // 12. UserAgent配置
+        // 13. UserAgent配置
         ConfigConstants.setUserAgentValue(userAgent);
 
-        // 13. Basic认证配置
+        // 14. Basic认证配置
         ConfigConstants.setBasicNameValue(basicName);
+
+        // 15. 视频转换配置
+        ConfigConstants.setMediaConvertMaxSizeValue(mediaConvertMaxSize);
+        ConfigConstants.setMediaTimeoutEnabledValue(mediaTimeoutEnabled);
+        ConfigConstants.setMediaSmallFileTimeoutValue(mediaSmallFileTimeout);
+        ConfigConstants.setMediaMediumFileTimeoutValue(mediaMediumFileTimeout);
+        ConfigConstants.setMediaLargeFileTimeoutValue(mediaLargeFileTimeout);
+        ConfigConstants.setMediaXLFileTimeoutValue(mediaXLFileTimeout);
+        ConfigConstants.setMediaXXLFileTimeoutValue(mediaXXLFileTimeout);
+        ConfigConstants.setMediaXXXLFileTimeoutValue(mediaXXXLFileTimeout);
+
+        // 19. CAD水印配置
+        ConfigConstants.setCadwatermarkValue(cadwatermark);
+
+        // 20. SSL忽略配置
+        ConfigConstants.setIgnoreSSLValue(ignoreSSL);
+
+        // 21. 重定向启用配置
+        ConfigConstants.setEnableRedirectValue(enableRedirect);
+
+        // 16. PDF DPI配置
+        ConfigConstants.setPdfDpiEnabledValue(pdfDpiEnabled);
+        ConfigConstants.setPdfSmallDpiValue(pdfSmallDpi);
+        ConfigConstants.setPdfMediumDpiValue(pdfMediumDpi);
+        ConfigConstants.setPdfLargeDpiValue(pdfLargeDpi);
+        ConfigConstants.setPdfXLargeDpiValue(pdfXLargeDpi);
+        ConfigConstants.setPdfXXLargeDpiValue(pdfXXLargeDpi);
+
+        // 17. PDF超时配置（新）
+        ConfigConstants.setPdfTimeoutSmallValue(pdfTimeoutSmall);
+        ConfigConstants.setPdfTimeoutMediumValue(pdfTimeoutMedium);
+        ConfigConstants.setPdfTimeoutLargeValue(pdfTimeoutLarge);
+        ConfigConstants.setPdfTimeoutXLargeValue(pdfTimeoutXLarge);
+
+        // 18. PDF线程配置
+        ConfigConstants.setPdfMaxThreadsValue(pdfMaxThreads);
     }
 
     /**

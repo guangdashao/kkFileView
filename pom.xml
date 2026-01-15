@@ -28,7 +28,6 @@
 
         <!-- ========== PDF 处理 ========== -->
         <pdfbox.version>3.0.6</pdfbox.version>
-        <itextpdf.version>5.5.13.4</itextpdf.version>
 
         <!-- ========== 图像处理 ========== -->
         <jai-imageio.version>1.4.0</jai-imageio.version>
@@ -51,7 +50,6 @@
         <concurrentlinkedhashmap.version>1.4.2</concurrentlinkedhashmap.version>
 
         <!-- ========== 网络通信 ========== -->
-        <httpclient.version>5.6</httpclient.version>
         <httpcomponents.version>4.5.16</httpcomponents.version>
         <commons-net.version>3.12.0</commons-net.version>
 

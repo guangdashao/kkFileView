@@ -7,6 +7,7 @@ import cn.keking.service.CadToPdfService;
 import cn.keking.service.FileHandlerService;
 import cn.keking.service.FilePreview;
 import cn.keking.utils.DownloadUtils;
+import cn.keking.utils.FileConvertStatusManager;
 import cn.keking.utils.KkFileUtils;
 import cn.keking.utils.WebUtils;
 import cn.keking.web.filter.BaseUrlFilter;
@@ -16,6 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * @author chenjh
@@ -33,7 +37,13 @@ public class CadFilePreviewImpl implements FilePreview {
     private final OtherFilePreviewImpl otherFilePreview;
     private final OfficeFilePreviewImpl officefilepreviewimpl;
 
-    public CadFilePreviewImpl(FileHandlerService fileHandlerService, OtherFilePreviewImpl otherFilePreview, CadToPdfService cadtopdfservice,OfficeFilePreviewImpl officefilepreviewimpl ) {
+    // 用于处理回调的线程池
+    private static final ExecutorService callbackExecutor = Executors.newFixedThreadPool(3);
+
+    public CadFilePreviewImpl(FileHandlerService fileHandlerService,
+                              OtherFilePreviewImpl otherFilePreview,
+                              CadToPdfService cadtopdfservice,
+                              OfficeFilePreviewImpl officefilepreviewimpl) {
         this.fileHandlerService = fileHandlerService;
         this.otherFilePreview = otherFilePreview;
         this.cadtopdfservice = cadtopdfservice;
@@ -43,41 +53,109 @@ public class CadFilePreviewImpl implements FilePreview {
     @Override
     public String filePreviewHandle(String url, Model model, FileAttribute fileAttribute) {
         // 预览Type，参数传了就取参数的，没传取系统默认
-        String officePreviewType = fileAttribute.getOfficePreviewType() == null ? ConfigConstants.getOfficePreviewType() : fileAttribute.getOfficePreviewType();
+        String officePreviewType = fileAttribute.getOfficePreviewType() == null ?
+                ConfigConstants.getOfficePreviewType() : fileAttribute.getOfficePreviewType();
         String baseUrl = BaseUrlFilter.getBaseUrl();
         boolean forceUpdatedCache = fileAttribute.forceUpdatedCache();
         String fileName = fileAttribute.getName();
         String cadPreviewType = ConfigConstants.getCadPreviewType();
         String cacheName = fileAttribute.getCacheName();
         String outFilePath = fileAttribute.getOutFilePath();
+
+        // 查询转换状态
+        FileConvertStatusManager.ConvertStatus status = FileConvertStatusManager.getConvertStatus(fileName);
+        if (status != null) {
+            if (status.getStatus() == FileConvertStatusManager.Status.CONVERTING) {
+                // 正在转换中，返回等待页面
+                model.addAttribute("fileName", fileName);
+                model.addAttribute("message", status.getRealTimeMessage());
+                return WAITING_FILE_PREVIEW_PAGE;
+            } else if (status.getStatus() == FileConvertStatusManager.Status.TIMEOUT) {
+                // 超时状态，不允许重新转换
+                return otherFilePreview.notSupportedFile(model, fileAttribute, "文件转换已超时，无法继续转换");
+            } else if (status.getStatus() == FileConvertStatusManager.Status.FAILED) {
+                // 失败状态，不允许重新转换
+                return otherFilePreview.notSupportedFile(model, fileAttribute, "文件转换失败，无法继续转换");
+            }
+        }
+
         // 判断之前是否已转换过，如果转换过，直接返回，否则执行转换
-        if (forceUpdatedCache || !fileHandlerService.listConvertedFiles().containsKey(cacheName) || !ConfigConstants.isCacheEnabled()) {
+        if (forceUpdatedCache || !fileHandlerService.listConvertedFiles().containsKey(cacheName)
+                || !ConfigConstants.isCacheEnabled()) {
+
+            // 检查是否已在转换中
             ReturnResponse<String> response = DownloadUtils.downLoad(fileAttribute, fileName);
             if (response.isFailure()) {
                 return otherFilePreview.notSupportedFile(model, fileAttribute, response.getMsg());
             }
+
             String filePath = response.getContent();
-            boolean imageUrls = false;
             if (StringUtils.hasText(outFilePath)) {
                 try {
-                    imageUrls = cadtopdfservice.cadToPdf(filePath, outFilePath, cadPreviewType, fileAttribute);
+                    // 启动异步转换，并添加回调处理
+                    startAsyncConversion(filePath, outFilePath, cacheName, fileAttribute);
+                    // 返回等待页面
+                    model.addAttribute("fileName", fileName);
+                    model.addAttribute("message", "文件正在转换中，请稍候...");
+                    return WAITING_FILE_PREVIEW_PAGE;
                 } catch (Exception e) {
-                    logger.error("Failed to convert CAD file: {}", filePath, e);
-                }
-                if (!imageUrls) {
+                    logger.error("Failed to start CAD conversion: {}", filePath, e);
                     return otherFilePreview.notSupportedFile(model, fileAttribute, "CAD转换异常，请联系管理员");
-                }
-                //是否保留CAD源文件
-                if (!fileAttribute.isCompressFile() && ConfigConstants.getDeleteSourceFile()) {
-                    KkFileUtils.deleteFileByPath(filePath);
-                }
-                if (ConfigConstants.isCacheEnabled()) {
-                    // 加入缓存
-                    fileHandlerService.addConvertedFile(cacheName, fileHandlerService.getRelativePath(outFilePath));
                 }
             }
         }
-        cacheName=  WebUtils.encodeFileName(cacheName);
+        // 如果已有缓存，直接渲染预览
+        return renderPreview(model, cacheName, outFilePath, officePreviewType, cadPreviewType, fileAttribute);
+    }
+
+    /**
+     * 启动异步转换，并在转换完成后处理后续操作
+     */
+    private void startAsyncConversion(String filePath, String outFilePath,
+                                      String cacheName, FileAttribute fileAttribute) {
+        // 启动异步转换
+        CompletableFuture<Boolean> conversionFuture = cadtopdfservice.cadToPdfAsync(
+                filePath,
+                outFilePath,
+                ConfigConstants.getCadPreviewType(),
+                fileAttribute
+        );
+
+        // 添加转换完成后的回调
+        conversionFuture.whenCompleteAsync((success, throwable) -> {
+            if (success != null && success) {
+                try {
+                    // 1. 是否保留CAD源文件（只在转换成功后才删除）
+                    if (!fileAttribute.isCompressFile() && ConfigConstants.getDeleteSourceFile()) {
+                        KkFileUtils.deleteFileByPath(filePath);
+                    }
+                    // 2. 加入缓存（只在转换成功后才添加）
+                    if (ConfigConstants.isCacheEnabled()) {
+                        fileHandlerService.addConvertedFile(cacheName,
+                                fileHandlerService.getRelativePath(outFilePath));
+                    }
+                } catch (Exception e) {
+                    logger.error("CAD转换后续处理失败: {}", filePath, e);
+                }
+            } else {
+                // 转换失败，保留源文件供排查问题
+                logger.error("CAD转换失败，保留源文件: {}", filePath);
+                if (throwable != null) {
+                    logger.error("转换失败原因: ", throwable);
+                }
+            }
+        }, callbackExecutor);
+    }
+
+    /**
+     * 渲染预览页面
+     */
+    private String renderPreview(Model model, String cacheName, String outFilePath,
+                                 String officePreviewType, String cadPreviewType,
+                                 FileAttribute fileAttribute) {
+        cacheName = WebUtils.encodeFileName(cacheName);
+        String baseUrl = BaseUrlFilter.getBaseUrl();
+
         if ("tif".equalsIgnoreCase(cadPreviewType)) {
             model.addAttribute("currentUrl", cacheName);
             return TIFF_FILE_PREVIEW_PAGE;
@@ -85,9 +163,14 @@ public class CadFilePreviewImpl implements FilePreview {
             model.addAttribute("currentUrl", cacheName);
             return SVG_FILE_PREVIEW_PAGE;
         }
-        if (baseUrl != null && (OFFICE_PREVIEW_TYPE_IMAGE.equals(officePreviewType) || OFFICE_PREVIEW_TYPE_ALL_IMAGES.equals(officePreviewType))) {
-            return officefilepreviewimpl.getPreviewType(model, fileAttribute, officePreviewType, cacheName, outFilePath, fileHandlerService, OFFICE_PREVIEW_TYPE_IMAGE, otherFilePreview);
+
+        if (baseUrl != null && (OFFICE_PREVIEW_TYPE_IMAGE.equals(officePreviewType) ||
+                OFFICE_PREVIEW_TYPE_ALL_IMAGES.equals(officePreviewType))) {
+            return officefilepreviewimpl.getPreviewType(model, fileAttribute, officePreviewType,
+                    cacheName, outFilePath, fileHandlerService,
+                    OFFICE_PREVIEW_TYPE_IMAGE, otherFilePreview);
         }
+
         model.addAttribute("pdfUrl", cacheName);
         return PDF_FILE_PREVIEW_PAGE;
     }
