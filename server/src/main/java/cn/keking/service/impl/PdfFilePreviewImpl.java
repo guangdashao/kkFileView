@@ -60,6 +60,9 @@ public class PdfFilePreviewImpl implements FilePreview {
         String originFilePath;  //原始文件路径
         String cacheName = pdfName+officePreviewType;
         String filePassword = fileAttribute.getFilePassword();  // 获取密码
+        if("demo.pdf".equals(pdfName)){
+            return otherFilePreview.notSupportedFile(model, fileAttribute, "不能使用该文件名，请更换其他文件名在进行转换");
+        }
         // 查询转换状态
         String statusResult = officefilepreviewimpl.checkAndHandleConvertStatus(model, pdfName, cacheName, fileAttribute);
         if (statusResult != null) {

@@ -3,30 +3,11 @@ package cn.keking.utils;
 import cn.keking.config.ConfigConstants;
 import cn.keking.model.FileAttribute;
 import cn.keking.model.ReturnResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.mola.galimatias.GalimatiasParseException;
 import org.apache.commons.io.FileUtils;
-import org.apache.hc.client5.http.ConnectionKeepAliveStrategy;
-import org.apache.hc.client5.http.config.ConnectionConfig;
-import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.core5.http.HttpResponse;
-import org.apache.hc.core5.http.protocol.HttpContext;
-import org.apache.hc.core5.util.TimeValue;
-import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.util.StringUtils;
-import org.springframework.web.client.RequestCallback;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -34,10 +15,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static cn.keking.utils.KkFileUtils.*;
 
@@ -52,56 +30,6 @@ public class DownloadUtils {
     private static final String URL_PARAM_FTP_PASSWORD = "ftp.password";
     private static final String URL_PARAM_FTP_CONTROL_ENCODING = "ftp.control.encoding";
     private static final String URL_PARAM_FTP_PORT = "ftp.control.port";
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    // 使用静态单例的HttpClient和RestTemplate，实现连接复用
-    private static volatile CloseableHttpClient httpClient;
-    private static volatile RestTemplate restTemplate;
-
-    // 获取单例HttpClient（线程安全）
-    private static CloseableHttpClient getHttpClient() throws Exception {
-        if (httpClient == null) {
-            synchronized (DownloadUtils.class) {
-                if (httpClient == null) {
-                    httpClient = createConfiguredHttpClient();
-                    logger.info("HttpClient初始化完成，已启用连接池和超时配置");
-                }
-            }
-        }
-        return httpClient;
-    }
-
-    // 获取单例RestTemplate
-    private static RestTemplate getRestTemplate() throws Exception {
-        if (restTemplate == null) {
-            synchronized (DownloadUtils.class) {
-                if (restTemplate == null) {
-                    HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
-                    factory.setHttpClient(getHttpClient());
-
-                    // 设置连接和读取超时（毫秒）
-                    factory.setConnectTimeout(10000);      // 10秒连接超时
-                    factory.setReadTimeout(30000);         // 30秒读取超时
-                    factory.setConnectionRequestTimeout(5000); // 5秒获取连接超时
-
-                    restTemplate = new RestTemplate(factory);
-                }
-            }
-        }
-        return restTemplate;
-    }
-
-    // 应用关闭时清理资源
-    public static void shutdown() {
-        if (httpClient != null) {
-            try {
-                httpClient.close();
-                logger.info("HttpClient已关闭");
-            } catch (IOException e) {
-                logger.warn("关闭HttpClient失败", e);
-            }
-        }
-    }
 
     /**
      * @param fileAttribute fileAttribute
@@ -149,79 +77,31 @@ public class DownloadUtils {
             if (!fileAttribute.getSkipDownLoad()) {
                 if (isHttpUrl(url)) {
                     File realFile = new File(realPath);
-
-                    // 使用单例的RestTemplate，复用连接池
-                    RestTemplate template = getRestTemplate();
+                    CloseableHttpClient httpClient = HttpRequestUtils.createConfiguredHttpClient();
                     String finalUrlStr = urlStr;
-                    RequestCallback requestCallback = request -> {
-                        request.getHeaders().setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
-                        WebUtils.applyBasicAuthHeaders(request.getHeaders(), finalUrlStr);
-                        String proxyAuthorization = fileAttribute.getKkProxyAuthorization();
-                        if(StringUtils.hasText(proxyAuthorization)){
-                            Map<String, String> proxyAuthorizationMap = mapper.readValue(
-                                    proxyAuthorization,
-                                    TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class)
-                            );
-                            proxyAuthorizationMap.forEach((key, value) -> request.getHeaders().set(key, value));
-                        }
-                    };
-                    try {
-                        final boolean[] hasError = {false};
-                        String finalUrlStr1 = urlStr;
-                        template.execute(url.toURI(), HttpMethod.GET, requestCallback, fileResponse -> {
-                            try {
-                                // 获取响应头中的Content-Type
-                                String contentType = WebUtils.headersType(fileResponse);
+                    HttpRequestUtils.executeHttpRequest(url, httpClient, fileAttribute, responseWrapper -> {
+                        // 获取响应头中的Content-Type
+                        String contentType = responseWrapper.getContentType();
 
-                                // 如果是Office/设计文件，需要校验MIME类型
-                                if ( WebUtils.isMimeCheckRequired(fileSuffix)) {
-                                    if (! WebUtils.isValidMimeType(contentType, fileSuffix)) {
-                                        logger.error("文件类型错误，期望二进制文件但接收到文本类型，url: {}, Content-Type: {}",
-                                                finalUrlStr1, contentType);
-                                        hasError[0] = true;
-                                        // 重要：关闭响应流，不读取后续数据
-                                        fileResponse.close();
-                                        return null;
-                                    }
-                                }
-
-                                // 保存文件
-                                FileUtils.copyToFile(fileResponse.getBody(), realFile);
-                            } catch (Exception e) {
-                                logger.error("处理文件响应时出错", e);
-                                hasError[0] = true;
+                        // 如果是Office/设计文件，需要校验MIME类型
+                        if (WebUtils.isMimeCheckRequired(fileSuffix)) {
+                            if (!WebUtils.isValidMimeType(contentType, fileSuffix)) {
+                                logger.error("文件类型错误，期望二进制文件但接收到文本类型，url: {}, Content-Type: {}",
+                                        finalUrlStr, contentType);
+                                responseWrapper.setHasError(true);
+                                return;
                             }
-                            return null;
-                        });
+                        }
 
-                        // 如果下载过程中出现错误
-                        if (hasError[0]) {
-                            response.setCode(1);
-                            response.setContent(null);
-                            response.setMsg("文件类型校验失败");
-                            return response;
-                        }
-                    }  catch (Exception e) {
-                        // 如果是SSL证书错误，给出建议
-                        if (e.getMessage() != null &&
-                                (e.getMessage().contains("SSL") ||
-                                        e.getMessage().contains("证书") ||
-                                        e.getMessage().contains("certificate")) &&
-                                !ConfigConstants.isIgnoreSSL()) {
-                            logger.warn("SSL证书验证失败，建议启用SSL忽略功能或检查证书");
-                        }
-                        response.setCode(1);
-                        response.setContent(null);
-                        response.setMsg("下载失败:" + e.getMessage());
-                        return response;
-                    }
-                    // 不再需要finally块中关闭HttpClient，因为复用
+                        // 保存文件
+                        FileUtils.copyToFile(responseWrapper.getInputStream(), realFile);
+                    });
                 } else if (isFtpUrl(url)) {
                     String ftpUsername = WebUtils.getUrlParameterReg(fileAttribute.getUrl(), URL_PARAM_FTP_USERNAME);
                     String ftpPassword = WebUtils.getUrlParameterReg(fileAttribute.getUrl(), URL_PARAM_FTP_PASSWORD);
                     String ftpControlEncoding = WebUtils.getUrlParameterReg(fileAttribute.getUrl(), URL_PARAM_FTP_CONTROL_ENCODING);
                     String ftpport = WebUtils.getUrlParameterReg(realPath, URL_PARAM_FTP_PORT);
-                    FtpUtils.download(fileAttribute.getUrl(),ftpport, realPath, ftpUsername, ftpPassword, ftpControlEncoding);
+                    FtpUtils.download(fileAttribute.getUrl(), ftpport, realPath, ftpUsername, ftpPassword, ftpControlEncoding);
                 } else if (isFileUrl(url)) { // 添加对file协议的支持
                     handleFileProtocol(url, realPath);
                 } else {
@@ -233,7 +113,7 @@ public class DownloadUtils {
             response.setMsg(fileName);
             return response;
         } catch (IOException | GalimatiasParseException e) {
-            logger.error("文件下载失败，url：{}", urlStr, e);
+            logger.error("文件下载失败，url：{}", urlStr);
             response.setCode(1);
             response.setContent(null);
             if (e instanceof FileNotFoundException) {
@@ -243,79 +123,8 @@ public class DownloadUtils {
             }
             return response;
         } catch (Exception e) {
-            logger.error("下载过程发生未知异常", e);
-            response.setCode(1);
-            response.setContent(null);
-            response.setMsg("下载失败:" + e.getMessage());
-            return response;
+            throw new RuntimeException(e);
         }
-    }
-
-    /**
-     * 创建根据配置定制的HttpClient（连接池版本）
-     */
-    private static CloseableHttpClient createConfiguredHttpClient() throws Exception {
-        // 使用新的Builder API创建连接池管理器
-        PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
-                .setMaxConnTotal(100)                     // 最大连接数
-                .setMaxConnPerRoute(20)                   // 每个路由最大连接数
-                .setDefaultConnectionConfig(ConnectionConfig.custom()
-                        .setConnectTimeout(Timeout.ofSeconds(10))      // 连接超时10秒
-                        .setSocketTimeout(Timeout.ofSeconds(30))       // Socket超时30秒
-                        .setTimeToLive(TimeValue.ofMinutes(10))        // 连接存活时间10分钟
-                        .build())
-                .build();
-
-        // 创建请求配置
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setResponseTimeout(Timeout.ofSeconds(30))             // 响应超时30秒
-                .setConnectionRequestTimeout(Timeout.ofSeconds(5))     // 获取连接超时5秒
-                .build();
-
-        // 创建HttpClientBuilder
-        HttpClientBuilder builder = HttpClients.custom()
-                .setConnectionManager(connectionManager)
-                .setDefaultRequestConfig(requestConfig);
-
-        // 配置Keep-Alive策略
-        ConnectionKeepAliveStrategy keepAliveStrategy = (response, context) -> {
-            // 默认保持30秒
-            return TimeValue.ofSeconds(30);
-        };
-        builder.setKeepAliveStrategy(keepAliveStrategy);
-
-        // 配置SSL
-        if (ConfigConstants.isIgnoreSSL()) {
-            logger.debug("创建忽略SSL验证的HttpClient");
-            // 如果SslUtils支持HttpClient5，则使用它来创建client
-            // 否则，我们需要在这里配置忽略SSL
-            return createHttpClientWithConfig(builder);
-        } else {
-            logger.debug("创建标准HttpClient");
-        }
-
-        // 配置重定向
-        if (!ConfigConstants.isEnableRedirect()) {
-            logger.debug("禁用HttpClient重定向");
-            builder.disableRedirectHandling();
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * 创建配置了忽略SSL的HttpClient
-     */
-    private static CloseableHttpClient createHttpClientWithConfig(HttpClientBuilder builder) throws Exception {
-        // 如果SslUtils支持直接配置builder，则：
-        // SslUtils.configureIgnoreSsl(builder);
-        // return builder.build();
-
-        // 否则，使用SslUtils创建client
-        CloseableHttpClient sslIgnoredClient = SslUtils.createHttpClientIgnoreSsl();
-
-        logger.warn("SslUtils.createHttpClientIgnoreSsl()可能没有连接池配置，建议修改SslUtils以支持builder配置");
-        return sslIgnoredClient;
     }
 
     // 处理file协议的文件下载

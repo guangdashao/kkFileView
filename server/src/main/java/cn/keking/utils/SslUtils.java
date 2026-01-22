@@ -80,8 +80,9 @@ public class SslUtils {
 
     /**
      * 创建忽略SSL验证的SSLContext
+     * 修改为public访问权限
      */
-    private static SSLContext createIgnoreVerifySSL() throws Exception {
+    public static SSLContext createIgnoreVerifySSL() throws Exception {
         // 使用TLSv1.2或TLSv1.3
         SSLContext sc = SSLContext.getInstance("TLSv1.2");
 

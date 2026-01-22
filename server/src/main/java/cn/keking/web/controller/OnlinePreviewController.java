@@ -7,21 +7,12 @@ import cn.keking.service.FilePreview;
 import cn.keking.service.FilePreviewFactory;
 import cn.keking.service.cache.CacheService;
 import cn.keking.service.impl.OtherFilePreviewImpl;
-import cn.keking.utils.FtpUtils;
-import cn.keking.utils.KkFileUtils;
-import cn.keking.utils.SslUtils;
-import cn.keking.utils.WebUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.TypeFactory;
+import cn.keking.utils.*;
 import fr.opensagres.xdocreport.core.io.IOUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.ObjectUtils;
@@ -29,8 +20,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.client.RequestCallback;
-import org.springframework.web.client.RestTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -39,7 +28,6 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import static cn.keking.service.FilePreview.PICTURE_FILE_PREVIEW_PAGE;
 import static cn.keking.utils.KkFileUtils.isFtpUrl;
@@ -64,7 +52,6 @@ public class OnlinePreviewController {
     private final CacheService cacheService;
     private final FileHandlerService fileHandlerService;
     private final OtherFilePreviewImpl otherFilePreview;
-    private static final ObjectMapper mapper = new ObjectMapper();
 
     public OnlinePreviewController(FilePreviewFactory filePreviewFactory, FileHandlerService fileHandlerService, CacheService cacheService, OtherFilePreviewImpl otherFilePreview) {
         this.previewFactory = filePreviewFactory;
@@ -189,50 +176,9 @@ public class OnlinePreviewController {
         InputStream inputStream = null;
         logger.info("读取跨域pdf文件url：{}", urlPath);
         if (!isFtpUrl(url)) {
-            // 根据配置创建HttpClient
-            CloseableHttpClient httpClient = createConfiguredHttpClient();
+            CloseableHttpClient httpClient = HttpRequestUtils.createConfiguredHttpClient();
 
-            HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
-            factory.setHttpClient(httpClient);
-
-            RestTemplate restTemplate = new RestTemplate();
-            restTemplate.setRequestFactory(factory);
-            String finalUrlPath = urlPath;
-            RequestCallback requestCallback = request -> {
-                request.getHeaders().setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
-                WebUtils.applyBasicAuthHeaders(request.getHeaders(), finalUrlPath);
-                String proxyAuthorization = fileAttribute.getKkProxyAuthorization();
-                if(StringUtils.hasText(proxyAuthorization)){
-                    Map<String, String> proxyAuthorizationMap = mapper.readValue(
-                            proxyAuthorization,
-                            TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class)
-                    );
-                    proxyAuthorizationMap.forEach((headerKey, value) -> request.getHeaders().set(headerKey, value));
-                }
-            };
-            try {
-                restTemplate.execute(url.toURI(), HttpMethod.GET, requestCallback, fileResponse -> {
-                    IOUtils.copy(fileResponse.getBody(), response.getOutputStream());
-                    return null;
-                });
-            }  catch (Exception e) {
-                // 如果是SSL证书错误，给出建议
-                if (e.getMessage() != null &&
-                        (e.getMessage().contains("SSL") ||
-                                e.getMessage().contains("证书") ||
-                                e.getMessage().contains("certificate")) &&
-                        !ConfigConstants.isIgnoreSSL()) {
-                    logger.warn("SSL证书验证失败，建议启用SSL忽略功能或检查证书");
-                }
-                logger.error("获取跨域文件失败", e);
-            } finally {
-                // 确保HttpClient被关闭
-                try {
-                    httpClient.close();
-                } catch (IOException e) {
-                    logger.warn("关闭HttpClient失败", e);
-                }
-            }
+            HttpRequestUtils.executeHttpRequest(url, httpClient, fileAttribute, responseWrapper -> IOUtils.copy(responseWrapper.getInputStream(), response.getOutputStream()));
         } else {
             try {
                 String filename = urlPath.substring(urlPath.lastIndexOf('/') + 1);
@@ -252,20 +198,6 @@ public class OnlinePreviewController {
                 IOUtils.closeQuietly(inputStream);
             }
         }
-    }
-
-    /**
-     * 创建根据配置定制的HttpClient
-     */
-    private CloseableHttpClient createConfiguredHttpClient() throws Exception {
-        org.apache.hc.client5.http.impl.classic.HttpClientBuilder builder = HttpClients.custom();
-
-        // 配置SSL和重定向
-        return SslUtils.configureHttpClientBuilder(
-                builder,
-                ConfigConstants.isIgnoreSSL(),
-                ConfigConstants.isEnableRedirect()
-        ).build();
     }
 
     /**
