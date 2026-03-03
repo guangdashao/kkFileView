@@ -44,6 +44,15 @@ public class TrustHostFilterTests {
     }
 
     @Test
+    void shouldSupportIpv4UpperBoundaryCidrMatching() {
+        ConfigConstants.setTrustHostValue("*");
+        ConfigConstants.setNotTrustHostValue("255.255.255.255/32");
+
+        assert trustHostFilter.isNotTrustHost("255.255.255.255");
+        assert !trustHostFilter.isNotTrustHost("255.255.255.254");
+    }
+
+    @Test
     void shouldDenyWhenHostIsBlankOrNull() {
         ConfigConstants.setTrustHostValue("*");
         ConfigConstants.setNotTrustHostValue("default");
