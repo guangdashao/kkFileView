@@ -30,6 +30,17 @@ public class TrustHostFilterTests {
 
         assert trustHostFilter.isNotTrustHost("10.1.2.3");
         assert !trustHostFilter.isNotTrustHost("11.1.2.3");
+        // Ensure hostnames are not matched by CIDR-based not-trust rules (no DNS resolution)
+        assert !trustHostFilter.isNotTrustHost("localhost");
+    }
+
+    @Test
+    void shouldDenyWhenHostIsBlankOrNull() {
+        ConfigConstants.setTrustHostValue("*");
+        ConfigConstants.setNotTrustHostValue("default");
+
+        assert trustHostFilter.isNotTrustHost(null);
+        assert trustHostFilter.isNotTrustHost(" ");
     }
 
     @Test
