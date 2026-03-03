@@ -16,6 +16,7 @@ import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
@@ -51,6 +52,9 @@ public class TrustHostFilter implements Filter {
         String host = WebUtils.getHost(url);
         if (isNotTrustHost(host)) {
             String currentHost = host == null ? "UNKNOWN" : host;
+            if (response instanceof HttpServletResponse httpServletResponse) {
+                httpServletResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            }
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType("text/html;charset=UTF-8");
             String html = this.notTrustHostHtmlView == null
@@ -70,8 +74,9 @@ public class TrustHostFilter implements Filter {
         }
 
         // 如果配置了黑名单，优先检查黑名单
-        if (CollectionUtils.isNotEmpty(ConfigConstants.getNotTrustHostSet())) {
-            return matchAnyPattern(host, ConfigConstants.getNotTrustHostSet());
+        if (CollectionUtils.isNotEmpty(ConfigConstants.getNotTrustHostSet())
+                && matchAnyPattern(host, ConfigConstants.getNotTrustHostSet())) {
+            return true;
         }
 
         // 如果配置了白名单，检查是否在白名单中
@@ -121,11 +126,39 @@ public class TrustHostFilter implements Filter {
         }
 
         if (pattern.contains("*")) {
+            if (isIpv4WildcardPattern(pattern)) {
+                return matchIpv4Wildcard(host, pattern);
+            }
             Pattern compiledPattern = wildcardPatternCache.computeIfAbsent(pattern, key -> Pattern.compile(wildcardToRegex(key)));
             return compiledPattern.matcher(host).matches();
         }
 
         return host.equals(pattern);
+    }
+
+    private boolean isIpv4WildcardPattern(String pattern) {
+        return pattern.matches("^[0-9.*]+$") && pattern.contains(".");
+    }
+
+    private boolean matchIpv4Wildcard(String host, String pattern) {
+        if (parseLiteralIpv4(host) == null) {
+            return false;
+        }
+        String[] hostParts = host.split("\\.");
+        String[] patternParts = pattern.split("\\.");
+        if (hostParts.length != 4 || patternParts.length < 1 || patternParts.length > 4) {
+            return false;
+        }
+        for (int i = 0; i < patternParts.length; i++) {
+            String p = patternParts[i];
+            if ("*".equals(p)) {
+                continue;
+            }
+            if (!p.equals(hostParts[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String wildcardToRegex(String wildcard) {

@@ -21,6 +21,7 @@ public class TrustHostFilterTests {
 
         assert trustHostFilter.isNotTrustHost("192.168.1.10");
         assert !trustHostFilter.isNotTrustHost("8.8.8.8");
+        assert !trustHostFilter.isNotTrustHost("192.168.evil.com");
     }
 
     @Test
@@ -78,5 +79,14 @@ public class TrustHostFilterTests {
         assert trustHostFilter.isNotTrustHost("127.0.0.1");
         assert trustHostFilter.isNotTrustHost("10.1.2.3");
         assert !trustHostFilter.isNotTrustHost("8.8.8.8");
+    }
+
+    @Test
+    void shouldStillEnforceWhitelistWhenBlacklistConfigured() {
+        ConfigConstants.setTrustHostValue("internal.example.com");
+        ConfigConstants.setNotTrustHostValue("127.0.0.1");
+
+        assert !trustHostFilter.isNotTrustHost("internal.example.com");
+        assert trustHostFilter.isNotTrustHost("8.8.8.8");
     }
 }
