@@ -5,6 +5,7 @@ import cn.keking.utils.WebUtils;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
@@ -50,8 +51,10 @@ public class TrustHostFilter implements Filter {
         String host = WebUtils.getHost(url);
         if (isNotTrustHost(host)) {
             String currentHost = host == null ? "UNKNOWN" : host;
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType("text/html;charset=UTF-8");
             String html = this.notTrustHostHtmlView == null
-                    ? "<html><body>当前预览文件来自不受信任的站点：" + currentHost + "</body></html>"
+                    ? "<html><head><meta charset=\"utf-8\"></head><body>当前预览文件来自不受信任的站点：" + currentHost + "</body></html>"
                     : this.notTrustHostHtmlView.replace("${current_host}", currentHost);
             response.getWriter().write(html);
             response.getWriter().close();
@@ -88,7 +91,7 @@ public class TrustHostFilter implements Filter {
     }
 
     private boolean matchAnyPattern(String host, Set<String> hostPatterns) {
-        String normalizedHost = host.toLowerCase();
+        String normalizedHost = host.toLowerCase(Locale.ROOT);
         for (String hostPattern : hostPatterns) {
             if (matchHostPattern(normalizedHost, hostPattern)) {
                 return true;
@@ -107,7 +110,7 @@ public class TrustHostFilter implements Filter {
         if (hostPattern == null || hostPattern.trim().isEmpty()) {
             return false;
         }
-        String pattern = hostPattern.trim().toLowerCase();
+        String pattern = hostPattern.trim().toLowerCase(Locale.ROOT);
 
         if ("*".equals(pattern)) {
             return true;
