@@ -35,6 +35,15 @@ public class TrustHostFilterTests {
     }
 
     @Test
+    void shouldSupportHighBitIpv4InCidrMatching() {
+        ConfigConstants.setTrustHostValue("*");
+        ConfigConstants.setNotTrustHostValue("200.0.0.0/8");
+
+        assert trustHostFilter.isNotTrustHost("200.1.2.3");
+        assert !trustHostFilter.isNotTrustHost("199.1.2.3");
+    }
+
+    @Test
     void shouldDenyWhenHostIsBlankOrNull() {
         ConfigConstants.setTrustHostValue("*");
         ConfigConstants.setNotTrustHostValue("default");

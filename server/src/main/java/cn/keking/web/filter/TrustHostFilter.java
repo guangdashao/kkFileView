@@ -49,7 +49,10 @@ public class TrustHostFilter implements Filter {
         String url = WebUtils.getSourceUrl(request);
         String host = WebUtils.getHost(url);
         if (isNotTrustHost(host)) {
-            String html = this.notTrustHostHtmlView.replace("${current_host}", host == null ? "UNKNOWN" : host);
+            String currentHost = host == null ? "UNKNOWN" : host;
+            String html = this.notTrustHostHtmlView == null
+                    ? "<html><body>当前预览文件来自不受信任的站点：" + currentHost + "</body></html>"
+                    : this.notTrustHostHtmlView.replace("${current_host}", currentHost);
             response.getWriter().write(html);
             response.getWriter().close();
         } else {
@@ -141,15 +144,15 @@ public class TrustHostFilter implements Filter {
             if (parts.length != 2) {
                 return false;
             }
-            int hostInt = parseLiteralIpv4(host);
-            int networkInt = parseLiteralIpv4(parts[0]);
+            Long hostInt = parseLiteralIpv4(host);
+            Long networkInt = parseLiteralIpv4(parts[0]);
             int prefixLength = Integer.parseInt(parts[1]);
 
-            if (hostInt < 0 || networkInt < 0 || prefixLength < 0 || prefixLength > 32) {
+            if (hostInt == null || networkInt == null || prefixLength < 0 || prefixLength > 32) {
                 return false;
             }
 
-            int mask = prefixLength == 0 ? 0 : -1 << (32 - prefixLength);
+            long mask = prefixLength == 0 ? 0L : (0xFFFFFFFFL << (32 - prefixLength)) & 0xFFFFFFFFL;
             return (hostInt & mask) == (networkInt & mask);
         } catch (NumberFormatException e) {
             return false;
@@ -159,27 +162,27 @@ public class TrustHostFilter implements Filter {
     /**
      * 仅解析字面量 IPv4 地址（不做 DNS 解析），防止 DNS rebinding/TOCTOU 风险。
      */
-    private int parseLiteralIpv4(String input) {
+    private Long parseLiteralIpv4(String input) {
         if (input == null || input.trim().isEmpty()) {
-            return -1;
+            return null;
         }
         String[] parts = input.trim().split("\\.");
         if (parts.length != 4) {
-            return -1;
+            return null;
         }
-        int result = 0;
+        long result = 0L;
         for (String part : parts) {
             if (part.isEmpty() || part.length() > 3) {
-                return -1;
+                return null;
             }
             int value;
             try {
                 value = Integer.parseInt(part);
             } catch (NumberFormatException e) {
-                return -1;
+                return null;
             }
             if (value < 0 || value > 255) {
-                return -1;
+                return null;
             }
             result = (result << 8) | value;
         }
