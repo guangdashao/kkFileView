@@ -55,10 +55,6 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Generate E2E fixtures
-        working-directory: tests/e2e
-        run: npm run gen:all
-
       - name: Start fixture server
         run: |
           cd tests/e2e/fixtures
@@ -97,20 +93,13 @@ jobs:
             exit 1
           fi
 
-      - name: Run smoke suite
-        working-directory: tests/e2e
-        env:
-          KK_BASE_URL: http://127.0.0.1:8012
-          FIXTURE_BASE_URL: http://127.0.0.1:18080
-        run: npm run test:smoke
-
-      - name: Run perf suite
+      - name: Run nightly E2E suites
         working-directory: tests/e2e
         env:
           KK_BASE_URL: http://127.0.0.1:8012
           FIXTURE_BASE_URL: http://127.0.0.1:18080
           E2E_MAX_PREVIEW_MS: 20000
-        run: npm run test:perf
+        run: npm run test:ci
 
       - name: Upload Playwright report
         if: always()

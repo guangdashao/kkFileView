@@ -1,16 +1,18 @@
 import { test, expect, request as playwrightRequest } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
 const fixtureBase = process.env.FIXTURE_BASE_URL || 'http://127.0.0.1:18080';
+const DEFAULT_MAX_MS = 15000;
 const envMaxMs = Number(process.env.E2E_MAX_PREVIEW_MS);
-const maxMs = Number.isFinite(envMaxMs) ? envMaxMs : 15000;
+const maxMs = Number.isFinite(envMaxMs) && envMaxMs > 0 ? Math.floor(envMaxMs) : DEFAULT_MAX_MS;
 
 function b64(v: string): string {
   return Buffer.from(v).toString('base64');
 }
 
-async function timedPreview(request: any, fileUrl: string) {
+async function timedPreview(request: APIRequestContext, fileUrl: string) {
   const started = Date.now();
-  const resp = await request.get(`/onlinePreview?url=${b64(fileUrl)}`);
+  const resp = await request.get(`/onlinePreview?url=${encodeURIComponent(b64(fileUrl))}`);
   const elapsed = Date.now() - started;
   return { resp, elapsed };
 }
