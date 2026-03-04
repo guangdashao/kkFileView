@@ -5,6 +5,8 @@ This folder contains a first MVP of end-to-end automated tests.
 ## What is covered
 
 - Basic preview smoke checks for common file types (txt/md/json/xml/csv/html/png)
+- Office Phase-2 smoke checks (docx/xlsx/pptx)
+- Archive smoke check (zip)
 - Basic endpoint reachability
 - Security regression checks for blocked internal-network hosts (`10.*`) on:
   - `/onlinePreview`
@@ -24,6 +26,7 @@ mvn -q -pl server -DskipTests package
 cd tests/e2e
 npm install
 npx playwright install --with-deps chromium
+pip3 install python-docx openpyxl python-pptx
 ```
 
 3. Generate fixtures and start fixture server:
@@ -31,6 +34,7 @@ npx playwright install --with-deps chromium
 ```bash
 cd /path/to/kkFileView
 node tests/e2e/scripts/generate-fixtures.mjs
+python3 tests/e2e/scripts/generate-office-fixtures.py
 cd tests/e2e/fixtures && python3 -m http.server 18080
 ```
 
