@@ -4,9 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "gen:fixtures": "node ./scripts/generate-fixtures.mjs",
+    "gen:office": "python3 ./scripts/generate-office-fixtures.py",
+    "gen:all": "npm run gen:fixtures && npm run gen:office",
+    "pretest": "npm run gen:all",
     "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "gen:fixtures": "node ./scripts/generate-fixtures.mjs"
+    "test:headed": "playwright test --headed"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"

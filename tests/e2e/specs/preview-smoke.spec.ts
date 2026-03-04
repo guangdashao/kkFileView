@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request as playwrightRequest } from '@playwright/test';
 
 const fixtureBase = process.env.FIXTURE_BASE_URL || 'http://127.0.0.1:18080';
 
@@ -10,6 +10,32 @@ async function openPreview(request: any, fileUrl: string) {
   const encoded = b64(fileUrl);
   return request.get(`/onlinePreview?url=${encoded}`);
 }
+
+test.beforeAll(async () => {
+  const api = await playwrightRequest.newContext();
+  const required = [
+    'sample.txt',
+    'sample.md',
+    'sample.json',
+    'sample.xml',
+    'sample.csv',
+    'sample.html',
+    'sample.png',
+    'sample.docx',
+    'sample.xlsx',
+    'sample.pptx',
+    'sample.zip',
+  ];
+
+  try {
+    for (const name of required) {
+      const resp = await api.get(`${fixtureBase}/${name}`);
+      expect(resp.ok(), `fixture missing or unavailable: ${name}`).toBeTruthy();
+    }
+  } finally {
+    await api.dispose();
+  }
+});
 
 test('01 home/index reachable', async ({ request }) => {
   const resp = await request.get('/');
@@ -51,13 +77,33 @@ test('08 png preview', async ({ request }) => {
   expect(resp.status()).toBe(200);
 });
 
-test('09 security: block 10.x host in onlinePreview', async ({ request }) => {
+test('09 docx preview', async ({ request }) => {
+  const resp = await openPreview(request, `${fixtureBase}/sample.docx`);
+  expect(resp.status()).toBe(200);
+});
+
+test('10 xlsx preview', async ({ request }) => {
+  const resp = await openPreview(request, `${fixtureBase}/sample.xlsx`);
+  expect(resp.status()).toBe(200);
+});
+
+test('11 pptx preview', async ({ request }) => {
+  const resp = await openPreview(request, `${fixtureBase}/sample.pptx`);
+  expect(resp.status()).toBe(200);
+});
+
+test('12 zip preview', async ({ request }) => {
+  const resp = await openPreview(request, `${fixtureBase}/sample.zip`);
+  expect(resp.status()).toBe(200);
+});
+
+test('13 security: block 10.x host in onlinePreview', async ({ request }) => {
   const resp = await openPreview(request, `http://10.1.2.3/a.pdf`);
   const body = await resp.text();
   expect(body).toContain('不受信任');
 });
 
-test('10 security: block 10.x host in getCorsFile', async ({ request }) => {
+test('14 security: block 10.x host in getCorsFile', async ({ request }) => {
   const encoded = b64('http://10.1.2.3/a.pdf');
   const resp = await request.get(`/getCorsFile?urlPath=${encoded}`);
   const body = await resp.text();
