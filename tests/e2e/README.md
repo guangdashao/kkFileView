@@ -62,4 +62,7 @@ npm run test:smoke
 
 # perf smoke (self-contained; default threshold 15000ms)
 E2E_MAX_PREVIEW_MS=15000 npm run test:perf
+
+# CI-style combined run (single fixture generation)
+E2E_MAX_PREVIEW_MS=20000 npm run test:ci
 ```
