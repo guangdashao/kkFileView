@@ -11,6 +11,14 @@ async function openPreview(request: any, fileUrl: string) {
   return request.get(`/onlinePreview?url=${encoded}`);
 }
 
+test.beforeAll(async ({ request }) => {
+  const required = ['sample.txt', 'sample.docx', 'sample.xlsx', 'sample.pptx', 'sample.zip'];
+  for (const name of required) {
+    const resp = await request.get(`${fixtureBase}/${name}`);
+    expect(resp.ok(), `fixture missing or unavailable: ${name}`).toBeTruthy();
+  }
+});
+
 test('01 home/index reachable', async ({ request }) => {
   const resp = await request.get('/');
   expect(resp.status()).toBeLessThan(500);

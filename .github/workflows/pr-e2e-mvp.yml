@@ -31,6 +31,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: tests/e2e/package-lock.json
 
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install LibreOffice + zip
         run: |
           sudo apt-get update
@@ -38,8 +43,8 @@ jobs:
 
       - name: Setup Python deps for office fixtures
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install python-docx openpyxl python-pptx
+          python -m pip install --upgrade pip
+          pip install -r tests/e2e/requirements.txt
 
       - name: Build kkFileView
         run: mvn -q -pl server -DskipTests package
