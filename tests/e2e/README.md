@@ -12,6 +12,7 @@ This folder contains a first MVP of end-to-end automated tests.
   - `/onlinePreview`
   - `/getCorsFile`
 - Basic performance smoke checks (configurable threshold): txt/docx/xlsx preview response time
+- CI combined run command available via `npm run test:ci`
 
 ## Local run
 

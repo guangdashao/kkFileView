@@ -7,7 +7,7 @@ function b64(v: string): string {
 }
 
 async function openPreview(request: any, fileUrl: string) {
-  const encoded = b64(fileUrl);
+  const encoded = encodeURIComponent(b64(fileUrl));
   return request.get(`/onlinePreview?url=${encoded}`);
 }
 
