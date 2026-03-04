@@ -24,8 +24,9 @@ if (!fs.existsSync(zipPath)) {
   fs.writeFileSync(path.join(zipWork, 'inner.txt'), 'kkFileView zip inner file');
   try {
     execFileSync('zip', ['-X', '-q', '-r', zipPath, 'inner.txt'], { cwd: zipWork });
-  } catch {
-    // fallback: keep going if zip is not available locally
+  } catch (err) {
+    console.error('Failed to create sample.zip fixture. Ensure "zip" is installed and available in PATH.');
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }
 

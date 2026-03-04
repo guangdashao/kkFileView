@@ -13,12 +13,28 @@ async function openPreview(request: any, fileUrl: string) {
 
 test.beforeAll(async () => {
   const api = await playwrightRequest.newContext();
-  const required = ['sample.txt', 'sample.docx', 'sample.xlsx', 'sample.pptx', 'sample.zip'];
-  for (const name of required) {
-    const resp = await api.get(`${fixtureBase}/${name}`);
-    expect(resp.ok(), `fixture missing or unavailable: ${name}`).toBeTruthy();
+  const required = [
+    'sample.txt',
+    'sample.md',
+    'sample.json',
+    'sample.xml',
+    'sample.csv',
+    'sample.html',
+    'sample.png',
+    'sample.docx',
+    'sample.xlsx',
+    'sample.pptx',
+    'sample.zip',
+  ];
+
+  try {
+    for (const name of required) {
+      const resp = await api.get(`${fixtureBase}/${name}`);
+      expect(resp.ok(), `fixture missing or unavailable: ${name}`).toBeTruthy();
+    }
+  } finally {
+    await api.dispose();
   }
-  await api.dispose();
 });
 
 test('01 home/index reachable', async ({ request }) => {

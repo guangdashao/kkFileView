@@ -55,11 +55,6 @@ jobs:
           npm install
           npx playwright install --with-deps chromium
 
-      - name: Generate fixtures
-        run: |
-          node tests/e2e/scripts/generate-fixtures.mjs
-          python3 tests/e2e/scripts/generate-office-fixtures.py
-
       - name: Start fixture server
         run: |
           cd tests/e2e/fixtures
