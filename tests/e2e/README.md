@@ -26,7 +26,7 @@ mvn -q -pl server -DskipTests package
 cd tests/e2e
 npm install
 npx playwright install --with-deps chromium
-pip3 install -r tests/e2e/requirements.txt
+pip3 install -r requirements.txt
 ```
 
 3. Generate fixtures and start fixture server:

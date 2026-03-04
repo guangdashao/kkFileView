@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const fixturesDir = path.resolve(process.cwd(), 'tests/e2e/fixtures');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const fixturesDir = path.resolve(__dirname, '..', 'fixtures');
 fs.mkdirSync(fixturesDir, { recursive: true });
 
 const write = (name, content) => fs.writeFileSync(path.join(fixturesDir, name), content);

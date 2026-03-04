@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request as playwrightRequest } from '@playwright/test';
 
 const fixtureBase = process.env.FIXTURE_BASE_URL || 'http://127.0.0.1:18080';
 
@@ -11,12 +11,14 @@ async function openPreview(request: any, fileUrl: string) {
   return request.get(`/onlinePreview?url=${encoded}`);
 }
 
-test.beforeAll(async ({ request }) => {
+test.beforeAll(async () => {
+  const api = await playwrightRequest.newContext();
   const required = ['sample.txt', 'sample.docx', 'sample.xlsx', 'sample.pptx', 'sample.zip'];
   for (const name of required) {
-    const resp = await request.get(`${fixtureBase}/${name}`);
+    const resp = await api.get(`${fixtureBase}/${name}`);
     expect(resp.ok(), `fixture missing or unavailable: ${name}`).toBeTruthy();
   }
+  await api.dispose();
 });
 
 test('01 home/index reachable', async ({ request }) => {
