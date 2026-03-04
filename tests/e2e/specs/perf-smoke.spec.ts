@@ -4,7 +4,7 @@ import type { APIRequestContext } from '@playwright/test';
 const fixtureBase = process.env.FIXTURE_BASE_URL || 'http://127.0.0.1:18080';
 const DEFAULT_MAX_MS = 15000;
 const envMaxMs = Number(process.env.E2E_MAX_PREVIEW_MS);
-const maxMs = Number.isFinite(envMaxMs) && envMaxMs > 0 ? Math.floor(envMaxMs) : DEFAULT_MAX_MS;
+const maxMs = Number.isFinite(envMaxMs) && envMaxMs >= 1 ? Math.floor(envMaxMs) : DEFAULT_MAX_MS;
 
 function b64(v: string): string {
   return Buffer.from(v).toString('base64');
