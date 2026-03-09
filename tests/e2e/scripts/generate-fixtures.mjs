@@ -38,22 +38,36 @@ const ensureArchive = (name, generator) => {
 };
 
 const buildDeterministicTar = (out, gzip = false) => {
-  const py = String.raw`import io, tarfile
+  const py = String.raw`import io, tarfile, gzip
 from pathlib import Path
 
 out = Path(r'''${out}''')
 inner_path = Path(r'''${innerFile}''')
 data = inner_path.read_bytes()
-mode = 'w:gz' if ${gzip ? 'True' : 'False'} else 'w'
-with tarfile.open(out, mode=mode, format=tarfile.USTAR_FORMAT) as tf:
-    info = tarfile.TarInfo('inner.txt')
-    info.size = len(data)
-    info.mtime = 946684800  # 2000-01-01 00:00:00 UTC
-    info.uid = 0
-    info.gid = 0
-    info.uname = 'root'
-    info.gname = 'root'
-    tf.addfile(info, io.BytesIO(data))
+use_gzip = ${gzip ? 'True' : 'False'}
+
+if use_gzip:
+    with out.open('wb') as f:
+        with gzip.GzipFile(filename='', mode='wb', fileobj=f, mtime=0) as gz:
+            with tarfile.open(fileobj=gz, mode='w', format=tarfile.USTAR_FORMAT) as tf:
+                info = tarfile.TarInfo('inner.txt')
+                info.size = len(data)
+                info.mtime = 946684800  # 2000-01-01 00:00:00 UTC
+                info.uid = 0
+                info.gid = 0
+                info.uname = 'root'
+                info.gname = 'root'
+                tf.addfile(info, io.BytesIO(data))
+else:
+    with tarfile.open(out, mode='w', format=tarfile.USTAR_FORMAT) as tf:
+        info = tarfile.TarInfo('inner.txt')
+        info.size = len(data)
+        info.mtime = 946684800  # 2000-01-01 00:00:00 UTC
+        info.uid = 0
+        info.gid = 0
+        info.uname = 'root'
+        info.gname = 'root'
+        tf.addfile(info, io.BytesIO(data))
 `;
   execFileSync('python3', ['-c', py]);
 };
