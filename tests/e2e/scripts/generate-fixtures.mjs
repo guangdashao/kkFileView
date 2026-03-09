@@ -16,20 +16,42 @@ write('sample.xml', '<root><name>kkFileView</name><e2e>true</e2e></root>');
 write('sample.csv', 'name,value\nkkFileView,1\ne2e,1\n');
 write('sample.html', '<!doctype html><html><body><h1>kkFileView fixture</h1></body></html>');
 
-// zip (contains txt) - only generate if missing to avoid noisy local diffs
-const zipPath = path.join(fixturesDir, 'sample.zip');
-if (!fs.existsSync(zipPath)) {
-  const zipWork = path.join(fixturesDir, 'zip-tmp');
-  fs.mkdirSync(zipWork, { recursive: true });
-  fs.writeFileSync(path.join(zipWork, 'inner.txt'), 'kkFileView zip inner file');
-  try {
-    execFileSync('zip', ['-X', '-q', '-r', zipPath, 'inner.txt'], { cwd: zipWork });
-  } catch (err) {
-    console.error('Failed to create sample.zip fixture. Ensure "zip" is installed and available in PATH.');
-    throw err instanceof Error ? err : new Error(String(err));
-  } finally {
-    fs.rmSync(zipWork, { recursive: true, force: true });
-  }
+// archive fixtures (contains inner.txt) - generate if missing
+const archiveWork = path.join(fixturesDir, 'archive-tmp');
+fs.mkdirSync(archiveWork, { recursive: true });
+fs.writeFileSync(path.join(archiveWork, 'inner.txt'), 'kkFileView archive inner file');
+
+const ensureArchive = (name, generator) => {
+  const out = path.join(fixturesDir, name);
+  if (fs.existsSync(out)) return;
+  generator(out);
+};
+
+try {
+  ensureArchive('sample.zip', out => {
+    execFileSync('zip', ['-X', '-q', '-r', out, 'inner.txt'], { cwd: archiveWork });
+  });
+
+  ensureArchive('sample.tar', out => {
+    execFileSync('tar', ['-cf', out, 'inner.txt'], { cwd: archiveWork });
+  });
+
+  ensureArchive('sample.tgz', out => {
+    execFileSync('tar', ['-czf', out, 'inner.txt'], { cwd: archiveWork });
+  });
+
+  ensureArchive('sample.7z', out => {
+    try {
+      execFileSync('7z', ['a', '-bd', '-y', out, 'inner.txt'], { cwd: archiveWork, stdio: 'ignore' });
+    } catch {
+      execFileSync('bsdtar', ['-a', '-cf', out, 'inner.txt'], { cwd: archiveWork });
+    }
+  });
+} catch (err) {
+  console.error('Failed to create archive fixtures. Ensure tar/zip/7z (or bsdtar) are available in PATH.');
+  throw err instanceof Error ? err : new Error(String(err));
+} finally {
+  fs.rmSync(archiveWork, { recursive: true, force: true });
 }
 
 // 1x1 png
