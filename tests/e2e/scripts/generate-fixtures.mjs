@@ -79,7 +79,7 @@ try {
     }
   });
 } catch (err) {
-  console.error('Failed to create archive fixtures. Ensure tar/zip/7z (or bsdtar) are available in PATH.');
+  console.error('Failed to create archive fixtures. Ensure python3, zip, 7z (or bsdtar) are available in PATH.');
   throw err instanceof Error ? err : new Error(String(err));
 } finally {
   fs.rmSync(archiveWork, { recursive: true, force: true });
