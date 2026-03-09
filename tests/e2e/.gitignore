@@ -4,7 +4,6 @@ test-results/
 
 __pycache__/
 fixtures/archive-tmp/
-fixtures/zip-tmp/
 fixtures/sample.docx
 fixtures/sample.xlsx
 fixtures/sample.pptx

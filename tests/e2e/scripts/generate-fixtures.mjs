@@ -87,7 +87,7 @@ try {
 
   ensureArchive('sample.7z', out => {
     try {
-      execFileSync('7z', ['a', '-bd', '-y', out, 'inner.txt'], { cwd: archiveWork, stdio: 'ignore' });
+      execFileSync('7z', ['a', '-bd', '-y', out, 'inner.txt'], { cwd: archiveWork });
     } catch {
       execFileSync('bsdtar', ['-a', '-cf', out, 'inner.txt'], { cwd: archiveWork });
     }
