@@ -19,12 +19,43 @@ write('sample.html', '<!doctype html><html><body><h1>kkFileView fixture</h1></bo
 // archive fixtures (contains inner.txt) - generate if missing
 const archiveWork = path.join(fixturesDir, 'archive-tmp');
 fs.mkdirSync(archiveWork, { recursive: true });
-fs.writeFileSync(path.join(archiveWork, 'inner.txt'), 'kkFileView archive inner file');
+const innerFile = path.join(archiveWork, 'inner.txt');
+fs.writeFileSync(innerFile, 'kkFileView archive inner file');
 
 const ensureArchive = (name, generator) => {
   const out = path.join(fixturesDir, name);
   if (fs.existsSync(out)) return;
-  generator(out);
+  try {
+    generator(out);
+  } catch (err) {
+    try {
+      fs.rmSync(out, { force: true });
+    } catch {
+      // ignore cleanup errors; original error will be rethrown
+    }
+    throw err;
+  }
+};
+
+const buildDeterministicTar = (out, gzip = false) => {
+  const py = String.raw`import io, tarfile
+from pathlib import Path
+
+out = Path(r'''${out}''')
+inner_path = Path(r'''${innerFile}''')
+data = inner_path.read_bytes()
+mode = 'w:gz' if ${gzip ? 'True' : 'False'} else 'w'
+with tarfile.open(out, mode=mode, format=tarfile.USTAR_FORMAT) as tf:
+    info = tarfile.TarInfo('inner.txt')
+    info.size = len(data)
+    info.mtime = 946684800  # 2000-01-01 00:00:00 UTC
+    info.uid = 0
+    info.gid = 0
+    info.uname = 'root'
+    info.gname = 'root'
+    tf.addfile(info, io.BytesIO(data))
+`;
+  execFileSync('python3', ['-c', py]);
 };
 
 try {
@@ -33,11 +64,11 @@ try {
   });
 
   ensureArchive('sample.tar', out => {
-    execFileSync('tar', ['-cf', out, 'inner.txt'], { cwd: archiveWork });
+    buildDeterministicTar(out, false);
   });
 
   ensureArchive('sample.tgz', out => {
-    execFileSync('tar', ['-czf', out, 'inner.txt'], { cwd: archiveWork });
+    buildDeterministicTar(out, true);
   });
 
   ensureArchive('sample.7z', out => {

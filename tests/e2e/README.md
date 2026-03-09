@@ -6,7 +6,7 @@ This folder contains a first MVP of end-to-end automated tests.
 
 - Basic preview smoke checks for common file types (txt/md/json/xml/csv/html/png)
 - Office Phase-2 smoke checks (docx/xlsx/pptx)
-- Archive smoke checks (zip/tar/tgz/7z/rar)
+- Archive smoke checks (zip/tar/tgz/7z)
 - Basic endpoint reachability
 - Security regression checks for blocked internal-network hosts (`10.*`) on:
   - `/onlinePreview`

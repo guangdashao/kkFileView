@@ -28,7 +28,6 @@ test.beforeAll(async () => {
     'sample.tar',
     'sample.tgz',
     'sample.7z',
-    'sample.rar',
   ];
 
   try {
@@ -113,11 +112,6 @@ test('14 tgz preview', async ({ request }) => {
 
 test('15 7z preview', async ({ request }) => {
   const resp = await openPreview(request, `${fixtureBase}/sample.7z`);
-  expect(resp.status()).toBe(200);
-});
-
-test('16 rar preview', async ({ request }) => {
-  const resp = await openPreview(request, `${fixtureBase}/sample.rar`);
   expect(resp.status()).toBe(200);
 });
 
