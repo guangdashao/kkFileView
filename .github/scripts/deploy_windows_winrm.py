@@ -29,10 +29,18 @@ def main() -> int:
     port = optional_env("KK_DEPLOY_PORT", "5985")
     username = require_env("KK_DEPLOY_USERNAME")
     password = require_env("KK_DEPLOY_PASSWORD")
-    deploy_root = optional_env("KK_DEPLOY_ROOT", r"C:\kkFileView-5.0")
-    health_url = optional_env("KK_DEPLOY_HEALTH_URL", "http://127.0.0.1:8012/")
-    artifact_url = require_env("KK_DEPLOY_ARTIFACT_URL")
-    dry_run = optional_env("KK_DEPLOY_DRY_RUN", "false").lower()
+    env_pairs = {
+        "KK_DEPLOY_ROOT": optional_env("KK_DEPLOY_ROOT", r"C:\kkFileView-5.0"),
+        "KK_DEPLOY_HEALTH_URL": optional_env("KK_DEPLOY_HEALTH_URL", "http://127.0.0.1:8012/"),
+        "KK_DEPLOY_REPO_URL": optional_env("KK_DEPLOY_REPO_URL", "https://github.com/kekingcn/kkFileView.git"),
+        "KK_DEPLOY_BRANCH": optional_env("KK_DEPLOY_BRANCH", "master"),
+        "KK_DEPLOY_SOURCE_ROOT": optional_env("KK_DEPLOY_SOURCE_ROOT", r"C:\kkFileView-source"),
+        "KK_DEPLOY_JAVA_HOME": optional_env("KK_DEPLOY_JAVA_HOME", r"C:\Program Files\jdk-21.0.2"),
+        "KK_DEPLOY_GIT_EXE": optional_env("KK_DEPLOY_GIT_EXE", r"C:\kkFileView-tools\git\cmd\git.exe"),
+        "KK_DEPLOY_MVN_CMD": optional_env("KK_DEPLOY_MVN_CMD", r"C:\kkFileView-tools\maven\bin\mvn.cmd"),
+        "KK_DEPLOY_MAVEN_SETTINGS": optional_env("KK_DEPLOY_MAVEN_SETTINGS", ""),
+        "KK_DEPLOY_DRY_RUN": optional_env("KK_DEPLOY_DRY_RUN", "false").lower(),
+    }
 
     script_path = pathlib.Path(__file__).with_name("remote_windows_deploy.ps1")
     script_body = script_path.read_text(encoding="utf-8")
@@ -74,17 +82,19 @@ $ErrorActionPreference = 'Stop'
 $raw = Get-Content -LiteralPath '{ps_quote(remote_b64_path)}' -Raw
 [System.IO.File]::WriteAllBytes('{ps_quote(remote_ps1_path)}', [Convert]::FromBase64String($raw))
 try {{
-  $env:KK_DEPLOY_ARTIFACT_URL = '{ps_quote(artifact_url)}'
-  $env:KK_DEPLOY_ROOT = '{ps_quote(deploy_root)}'
-  $env:KK_DEPLOY_HEALTH_URL = '{ps_quote(health_url)}'
-  $env:KK_DEPLOY_DRY_RUN = '{ps_quote(dry_run)}'
+"""
+        + "\n".join(
+            f"  $env:{key} = '{ps_quote(value)}'" for key, value in env_pairs.items()
+        )
+        + f"""
   powershell -NoProfile -ExecutionPolicy Bypass -File '{ps_quote(remote_ps1_path)}' `
   $code = $LASTEXITCODE
 }} finally {{
-  Remove-Item Env:KK_DEPLOY_ARTIFACT_URL -ErrorAction SilentlyContinue
-  Remove-Item Env:KK_DEPLOY_ROOT -ErrorAction SilentlyContinue
-  Remove-Item Env:KK_DEPLOY_HEALTH_URL -ErrorAction SilentlyContinue
-  Remove-Item Env:KK_DEPLOY_DRY_RUN -ErrorAction SilentlyContinue
+"""
+        + "\n".join(
+            f"  Remove-Item Env:{key} -ErrorAction SilentlyContinue" for key in env_pairs
+        )
+        + f"""
   Remove-Item '{ps_quote(remote_b64_path)}' -Force -ErrorAction SilentlyContinue
   Remove-Item '{ps_quote(remote_ps1_path)}' -Force -ErrorAction SilentlyContinue
 }}
