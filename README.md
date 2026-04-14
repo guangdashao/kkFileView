@@ -79,6 +79,7 @@ URL：[https://file.kkview.cn](https://file.kkview.cn)
 9. Redesigned archive preview into a single workspace with a collapsible tree and inline file preview
 10. Improved archive preview file-type badges and single-image preview styling
 11. Added an agent-focused repository guide for engineering automation and maintenance
+12. Refreshed the demo portal pages, including the index, integration guide, release record, and sponsor pages
 
 #### New Features
 1. msg email parsing - Added support for msg format email file preview
@@ -103,6 +104,8 @@ URL：[https://file.kkview.cn](https://file.kkview.cn)
 6. Default Office preview now prefers PDF mode, and PDF preview opens with the thumbnail sidebar visible by default
 7. Updated startup scripts to discover the packaged jar dynamically instead of relying on stale hard-coded jar names
 8. Updated Docker and release helper docs to align with the 5.0.0 release line
+9. Fixed OFD table border overflow rendering issues
+10. Refined the PDF.js compatibility polyfill to avoid preview errors in compatibility environments
 
 #### Updates
 1. JDK version requirement - Mandatory requirement for JDK 21 or higher
@@ -114,6 +117,7 @@ URL：[https://file.kkview.cn](https://file.kkview.cn)
 7. Video backend async conversion optimization - Implemented multi-threaded asynchronous conversion
 8. CAD backend async conversion optimization - Implemented multi-threaded asynchronous conversion
 9. Default preview configuration strategy adjusted - Office preview now defaults to PDF mode, the mode switch is hidden by default, and PDF preview opens with the thumbnail sidebar visible. If you need the previous image-first behavior after upgrade, explicitly set `office.preview.type=image` and `office.preview.switch.disabled=false`.
+10. Trust host configuration matching expanded - `trust.host` and related rules now support wildcard and CIDR matching, which may broaden or narrow effective allow/deny behavior after upgrade depending on your patterns
 
 ### Version 4.4.0 (January 16, 2025)
 

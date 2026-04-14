@@ -68,6 +68,7 @@
                                 <li>首页支持目录访问，并切换为 POST 服务端分页。</li>
                                 <li>压缩包预览页重构为单工作区布局，支持目录折叠与右侧内嵌预览。</li>
                                 <li>优化压缩包内文件类型标识，以及单图预览页展示样式。</li>
+                                <li>重构演示门户页面，包括首页、接入说明、版本记录与赞助页。</li>
                             </ul>
                         </div>
                         <div class="release-group">
@@ -87,6 +88,7 @@
                                 <li>修复 SSL 自签证书接入问题。</li>
                                 <li>修复压缩包内 Office 文件重复解压后被追加写坏、导致一直加载中的问题。</li>
                                 <li>Office 默认预览切到 PDF 模式，并默认展开 PDF 缩略图侧栏。</li>
+                                <li>修复 OFD 表格竖线溢出导致的渲染异常，并修正 PDF.js 兼容性补丁。</li>
                             </ul>
                         </div>
                         <div class="release-group">
@@ -97,6 +99,7 @@
                                 <li>后端异步转换升级：PDF、TIF、视频、CAD。</li>
                                 <li>启动脚本改为自动发现当前发布包中的 jar，并同步更新 Docker 与发布辅助文档。</li>
                                 <li>默认配置策略调整：Office 预览默认使用 PDF 模式，默认隐藏图片/PDF 模式切换按钮；如需保留旧的图片优先体验，请显式设置 <code>office.preview.type=image</code> 与 <code>office.preview.switch.disabled=false</code>。</li>
+                                <li>信任域名配置匹配策略扩展：<code>trust.host</code> 及相关规则支持通配符与 CIDR 匹配；升级后请重新核对白名单和黑名单的匹配范围。</li>
                             </ul>
                         </div>
                     </div>
