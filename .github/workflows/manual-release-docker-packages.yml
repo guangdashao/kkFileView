@@ -1,6 +1,9 @@
 name: Manual Release Docker Packages
 
 on:
+  push:
+    branches:
+      - ops/release-v5.0.0-docker
   workflow_dispatch:
 
 jobs:
