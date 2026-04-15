@@ -258,7 +258,7 @@ public class PdfFilePreviewImpl implements FilePreview {
                                            String pdfName, boolean forceUpdatedCache,
                                            String outFilePath) {
         // 不是http开头，浏览器不能直接访问，需下载到本地
-        if (url != null && !url.toLowerCase().startsWith("http")) {
+        if (url != null && !url.toLowerCase().startsWith("http") && !url.toLowerCase().startsWith("https")) {
             if (forceUpdatedCache || !fileHandlerService.listConvertedFiles().containsKey(pdfName) || !ConfigConstants.isCacheEnabled()) {
                 ReturnResponse<String> response = DownloadUtils.downLoad(fileAttribute, pdfName);
                 if (response.isFailure()) {

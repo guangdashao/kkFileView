@@ -1,5 +1,6 @@
 (function() {
-  const workerUrl = '/heic/src/worker.js';
+//  const workerUrl = (window.KK_CONTEXT_PATH || '') + '/heic/src/worker.js';
+    const workerUrl = 'heic/src/worker.js';
   const worker = new Worker(workerUrl);
   const promisePool = {};
   const statFuncPool = {};

@@ -1,11 +1,14 @@
 package cn.keking.web.filter;
 
 import cn.keking.config.ConfigConstants;
+import cn.keking.config.UserInfoConstants;
 import cn.keking.config.WatermarkConfigConstants;
 import cn.keking.utils.KkFileUtils;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.util.StringUtils;
+
 import java.io.IOException;
 
 /**
@@ -63,8 +66,22 @@ public class AttributeSetFilter implements Filter {
      */
 
     private void setWatermarkAttribute(ServletRequest request) {
-        String watermarkTxt= KkFileUtils.htmlEscape(request.getParameter("watermarkTxt"));
-        request.setAttribute("watermarkTxt", watermarkTxt != null ? watermarkTxt : WatermarkConfigConstants.getWatermarkTxt());
+        String watermarkTxttmp= KkFileUtils.htmlEscape(request.getParameter("watermarkTxt"));
+//        request.setAttribute("watermarkTxt", watermarkTxt != null ? watermarkTxt : WatermarkConfigConstants.getWatermarkTxt());
+        // shaogd 2026/1/7 水印属性,不从 请求参数中取
+        // 从header 中获取，属性为YUJIA_PRINCIPAL_HEADER
+        String watermarkTxt1 = watermarkTxttmp != null ? watermarkTxttmp : WatermarkConfigConstants.getWatermarkTxt();
+        String watermarkTxt=null;
+        if(StringUtils.hasText(watermarkTxt1)) {
+            // watermarkTxt1 不为空，表示启用水印功能 UserInfoFilter中设置
+            watermarkTxt = (String)request.getAttribute(UserInfoConstants.YUJIA_PRINCIPAL_ATTRIBUTE);
+
+            watermarkTxt = KkFileUtils.htmlEscape(watermarkTxt);
+        }
+        // 如果开启水印功能， 如果从header中获取到用户信息，和将 配置中的水印信息与用户信息进行拼接
+        request.setAttribute("watermarkTxt", watermarkTxt != null ? watermarkTxt1+":"+watermarkTxt : watermarkTxt1);
+
+
         String watermarkXSpace =  KkFileUtils.htmlEscape(request.getParameter("watermarkXSpace"));
         if (!KkFileUtils.isInteger(watermarkXSpace)){
             watermarkXSpace =null;

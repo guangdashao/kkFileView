@@ -1,5 +1,5 @@
 (function() {
-  importScripts('/heic/src/wasm_heif.js');
+  importScripts('wasm_heif.js');
   const cacheName = 'ConvertHeicToPng';
   const cacheVersion = 'r=11';
 
@@ -13,11 +13,11 @@
   }
 
   if (typeof Atomics == 'undefined') {
-    importScripts('/heic/src/atomics.js');
+    importScripts('atomics.js');
   }
 
   if (typeof OffscreenCanvas == 'undefined') {
-    importScripts('/heic/src/offscreencanvas.js');
+    importScripts('offscreencanvas.js');
   }
 
   const jobQueue = {

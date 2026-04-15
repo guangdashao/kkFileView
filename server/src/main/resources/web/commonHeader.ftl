@@ -1,7 +1,7 @@
 <#setting classic_compatible=true>
 <link rel="icon" href="./favicon.ico" type="image/x-icon">
 <script src="js/watermark.js" type="text/javascript"></script>
-
+<script>window.KK_CONTEXT_PATH = '${request.contextPath}';</script>
 <script>
     /**
      * 初始化水印

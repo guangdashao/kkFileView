@@ -2,10 +2,13 @@ package cn.keking.service.cache.impl;
 
 import cn.keking.service.cache.CacheService;
 import cn.keking.utils.ConfigUtils;
+import jakarta.annotation.PostConstruct;
+import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Service;
 
@@ -37,9 +40,30 @@ public class CacheServiceRocksDBImpl implements CacheService {
 
     private RocksDB db;
 
-    {
+    /** WAL 过期时间（秒） */
+    @Value("${rocksdb.wal.ttl.seconds:86400}")
+    private long walTtlSeconds;
+
+    /** WAL 大小限制（MB） */
+    @Value("${rocksdb.wal.size.limit.mb:100}")
+    private long walSizeLimitMb;
+
+    /** 保留旧 LOG 数量 */
+    @Value("${rocksdb.keep.log.file.num:5}")
+    private int keepLogFileNum;
+
+    @PostConstruct
+    public void init() {
         try {
-            db = RocksDB.open(DB_PATH);
+            Options options = new Options()
+                    .setCreateIfMissing(true)
+                    .setWalTtlSeconds(walTtlSeconds)
+                    .setWalSizeLimitMB(walSizeLimitMb)
+                    .setKeepLogFileNum(keepLogFileNum);
+            // 设置其他推荐参数
+            options.setMaxLogFileSize(50 * 1024 * 1024); // 50MB
+
+            db = RocksDB.open(options, DB_PATH);
             if (db.get(FILE_PREVIEW_PDF_KEY.getBytes()) == null) {
                 Map<String, String> initPDFCache = new HashMap<>();
                 db.put(FILE_PREVIEW_PDF_KEY.getBytes(), toByteArray(initPDFCache));
@@ -56,7 +80,6 @@ public class CacheServiceRocksDBImpl implements CacheService {
             LOGGER.error("Uable to init RocksDB" + e);
         }
     }
-
 
     @Override
     public void initPDFCachePool(Integer capacity) {

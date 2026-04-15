@@ -142,10 +142,10 @@
 <div id="lucky-mask-demo" style="position: absolute;z-index: 1000000;left: 0px;top: 0px;bottom: 0px;right: 0px; background: rgba(255, 255, 255, 0.8); text-align: center;font-size: 40px;align-items:center;justify-content: center;display: none;">加载中</div>
 
 <p style="text-align:center;">
-<div id="button-area" style="display: none;">
-    <label><button onclick="tiaozhuan()">跳转HTML预览</button></label>
-    <button id="confirm-button" onclick="print()">打印</button>
-</div>
+<#--<div id="button-area" style="display: none;">-->
+<#--    <label><button onclick="tiaozhuan()">跳转HTML预览</button></label>-->
+<#--    <button id="confirm-button" onclick="print()">打印</button>-->
+<#--</div>-->
 <div id="luckysheet" style="margin:0px;padding:0px;position:absolute;width:100%;left: 0px;top: 20px;bottom: 0px;outline: none;"></div>
 
 <script src="xlsx/luckyexcel.umd.js"></script>
@@ -267,8 +267,8 @@
                                     container: 'luckysheet',
                                     lang: "zh",
                                     showtoolbarConfig:{
-                                        image: true,
-                                        print: true,
+                                        image: false,
+                                        print: false,
                                         exportXlsx: true,
                                     },
                                    allowCopy: true, // 是否允许拷贝

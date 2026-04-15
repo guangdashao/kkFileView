@@ -1,3 +1,7 @@
+并未 进行镜像构建，而是 使用了 docker pull xinac721/kkfileview-base:4.4.0 作为基础镜像。构建版本
+
+
+
 # Build Instructions
 
 Since the base runtime environment for kkfileview rarely changes and takes a long time to build, while the kkfileview code itself is frequently updated, the process of building its Docker image is split into two steps:
@@ -13,7 +17,15 @@ To build the base image, run the following command:
 ```shell
 docker build --tag keking/kkfileview-base:5.0.0 .
 ```
+```shell
+docker build --tag harborx.ansteel.cn/lib/kkfileview-base:5.0.0-arm64 . --platform=linux/arm64
+docker build --tag harborx.ansteel.cn/lib/kkfileview-base:5.0.0-amd64 . --platform=linux/amd64
+docker push harborx.ansteel.cn/lib/kkfileview-base:5.0.0-arm64
+docker push harborx.ansteel.cn/lib/kkfileview-base:5.0.0-amd64
+docker manifest create harborx.ansteel.cn/lib/kkfileview-base:5.0.0 harborx.ansteel.cn/lib/kkfileview-base:5.0.0-arm64 harborx.ansteel.cn/lib/kkfileview-base:5.0.0-amd64
+docker manifest push harborx.ansteel.cn/lib/kkfileview-base:5.0.0
 
+```
 
 
 ## Cross-Platform Build

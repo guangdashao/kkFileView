@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -97,6 +98,23 @@ public class WebConfig implements WebMvcConfigurer {
         FilterRegistrationBean<AttributeSetFilter> registrationBean = new FilterRegistrationBean<>();
         registrationBean.setFilter(filter);
         registrationBean.setUrlPatterns(filterUri);
+        return registrationBean;
+    }
+    // 在profile 为web 情况下，添加filter，否则不添加
+    // 对所有接口都添加  filter ，filter为校验 header中是否包含 用户信息 ，
+    @Profile("!dev")
+    @Bean
+    public FilterRegistrationBean<UserInfoFilter> getUserInfoFilter() {
+        Set<String> filterUri = new HashSet<>();
+        filterUri.add("/index");
+        filterUri.add("/");
+        filterUri.add("/onlinePreview");
+        filterUri.add("/picturesPreview");
+        UserInfoFilter filter = new UserInfoFilter();
+        FilterRegistrationBean<UserInfoFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(filter);
+        registrationBean.setUrlPatterns(filterUri);
+        registrationBean.setOrder(30);
         return registrationBean;
     }
 }

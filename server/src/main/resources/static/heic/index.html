@@ -36,7 +36,7 @@
                 x.addEventListener('error', async function() {
                     if (!document.ConvertHeicToPng) {
                         if (!document.LoadConvertHeicToPng) {
-                            document.LoadConvertHeicToPng = import('/heif/src/index.js');
+                            document.LoadConvertHeicToPng = import('heif/src/index.js');
                         }
                         await document.LoadConvertHeicToPng;
                     }

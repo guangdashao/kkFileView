@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>kkFileView 技术支持</title>
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<#--    <link rel="preconnect" href="https://fonts.googleapis.com">-->
+<#--    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>-->
+<#--    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">-->
     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
     <link rel="stylesheet" href="css/theme.css"/>
     <link rel="stylesheet" href="css/main-pages.css"/>
@@ -18,9 +18,9 @@
 <body class="app-shell">
 <nav class="site-nav navbar navbar-inverse navbar-fixed-top">
     <div class="container">
-        <div class="navbar-header">
-            <a class="navbar-brand" href="https://kkview.cn" target="_blank">kkFileView</a>
-        </div>
+<#--        <div class="navbar-header">-->
+<#--&lt;#&ndash;            <a class="navbar-brand" href="https://kkview.cn" target="_blank">kkFileView</a>&ndash;&gt;-->
+<#--        </div>-->
         <ul class="nav navbar-nav">
             <li><a href="./index">首页</a></li>
             <li><a href="./integrated">接入说明</a></li>

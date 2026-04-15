@@ -1,5 +1,6 @@
 package cn.keking.web.controller;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
  * @author yudian-it
  * @date 2017/12/27
  */
+@Profile("dev")
 @Controller
 public class IndexController {
 

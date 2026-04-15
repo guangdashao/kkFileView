@@ -46,7 +46,7 @@
 
         <!-- ========== 缓存和存储 ========== -->
         <redisson.version>4.0.0</redisson.version>
-        <rocksdb.version>5.17.2</rocksdb.version>
+        <rocksdb.version>10.10.1.1</rocksdb.version>
         <concurrentlinkedhashmap.version>1.4.2</concurrentlinkedhashmap.version>
 
         <!-- ========== 网络通信 ========== -->

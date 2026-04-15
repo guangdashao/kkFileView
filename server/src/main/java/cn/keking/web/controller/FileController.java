@@ -10,6 +10,7 @@ import cn.keking.utils.RarUtils;
 import cn.keking.utils.WebUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,6 +42,7 @@ import static cn.keking.utils.CaptchaUtil.CAPTCHA_GENERATE_TIME;
  * @author yudian-it
  * 2017/12/1
  */
+@Profile("dev")
 @RestController
 public class FileController {
 
