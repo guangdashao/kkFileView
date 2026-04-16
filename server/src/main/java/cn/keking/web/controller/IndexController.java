@@ -23,20 +23,25 @@ public class IndexController {
         return "/main/record";
     }
 
-    @GetMapping( "/sponsor")
-    public String go2Sponsor(){
-        return "/main/sponsor";
-    }
+//    @GetMapping( "/sponsor")
+//    public String go2Sponsor(){
+//        return "/main/sponsor";
+//    }
 
     @GetMapping( "/integrated")
     public String go2Integrated(){
         return "/main/integrated";
     }
 
-    @GetMapping( "/contact")
-    public String go2Contact(){
-        return "/main/contact";
+    @GetMapping( "/deploy-config")
+    public String go2DeployConfig(){
+        return "/main/deploy-config";
     }
+
+//    @GetMapping( "/contact")
+//    public String go2Contact(){
+//        return "/main/contact";
+//    }
 
     @GetMapping( "/")
     public String root() {

@@ -26,8 +26,9 @@
             <li><a href="./index">首页</a></li>
             <li class="active"><a href="./integrated">接入说明</a></li>
             <li><a href="./record">版本发布记录</a></li>
-            <li><a href="./sponsor">赞助开源</a></li>
-            <li><a href="./contact">技术支持</a></li>
+            <li><a href="./deploy-config">部署配置</a></li>
+<#--            <li><a href="./sponsor">赞助开源</a></li>-->
+<#--            <li><a href="./contact">技术支持</a></li>-->
         </ul>
     </div>
 </nav>
