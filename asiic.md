@@ -37,4 +37,37 @@
 10. json
 11. bpmn
 12. python , yaml, md
-13. 
+
+
+
+## 2. 构建 kkFileView 应用镜像
+
+
+mvn clean package -DskipTests
+
+
+
+在项目根目录下，修改 [Dockerfile](./Dockerfile)，然后构建应用镜像。
+
+Dockerfile 内容：
+
+```dockerfile
+FROM harborx.ansteel.cn/lib/kkfileview-base:5.0.0
+# ADD命令在遇到压缩文件（如 .tar.gz）时会自动解压
+ADD server/target/kkFileView-*.tar.gz /opt/
+ENV KKFILEVIEW_BIN_FOLDER=/opt/kkFileView-5.0.0/bin
+ENTRYPOINT ["java","-Dfile.encoding=UTF-8","-Dspring.config.location=/opt/kkFileView-5.0.0/config/application.properties","-jar","/opt/kkFileView-5.0.0/bin/kkFileView-5.0.0.jar"]
+```
+
+构建命令：
+
+```shell
+# 在项目根目录执行
+docker build --tag harborx.ansteel.cn/platform/kkfileview:5.0.0-arm64 . --platform=linux/arm64
+docker build --tag harborx.ansteel.cn/platform/kkfileview:5.0.0-amd64 . --platform=linux/amd64
+docker push harborx.ansteel.cn/platform/kkfileview:5.0.0-arm64
+docker push harborx.ansteel.cn/platform/kkfileview:5.0.0-amd64
+docker manifest rm harborx.ansteel.cn/platform/kkfileview:5.0.0
+docker manifest create harborx.ansteel.cn/platform/kkfileview:5.0.0 harborx.ansteel.cn/platform/kkfileview:5.0.0-arm64 harborx.ansteel.cn/platform/kkfileview:5.0.0-amd64
+docker manifest push harborx.ansteel.cn/platform/kkfileview:5.0.0
+```

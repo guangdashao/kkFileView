@@ -1,0 +1,64 @@
+x-deploy-common:
+  &deploy-common
+  restart: unless-stopped
+  network_mode: "host"
+  init: true
+services:
+  platform-kkfileview:
+    <<: *deploy-common
+    image: harborx.ansteel.cn/platform/kkfileview:5.0.0
+    container_name: platform-kkfileview
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl --fail --silent  http://localhost:8012/preview/actuator/health || exit 1 ",
+        ]
+      start_period: 60s
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "${CPU_LIMITS}"
+          memory: ${MEMORY_LIMITS}
+        reservations:
+          memory: ${MEMORY_LIMITS}
+    cpus: ${CPU_LIMITS}
+    mem_limit: ${MEMORY_LIMITS}
+    environment:
+      # dev 开始本地上传，调试文档等。正式环境不要该配置
+      KK_SERVER_PROFILE: dev
+      DEFAULT_FILE_UPLOAD_DISABLE: false
+      # KK_SERVER_PORT: {{APP_PORT}}
+      # KK_CONTEXT_PATH: {{contextPath}}
+      #提供预览服务的地址，默认从请求url读，如果使用nginx等反向代理，需要手动设置
+      KK_BASE_URL: default
+      # ========== 安全配置（重要）==========
+      # 信任站点白名单配置，多个用','隔开
+      # ⚠️ 安全提示：为防止SSRF攻击，强烈建议配置信任主机白名单
+      # ⚠️ 如果不配置，系统将默认拒绝所有外部文件预览请求
+      #
+      # 配置示例：
+      # trust.host = kkview.cn,yourdomain.com,cdn.example.com
+      KK_TRUST_HOST: default
+      #office类型文档(word ppt)样式，默认为图片(pdf)，可配置为 image（预览时也有按钮切换）
+      KK_OFFICE_PREVIEW_TYPE: pdf
+      #水印内容
+      #例：watermark.txt = ${WATERMARK_TXT:凯京科技内部文件，严禁外泄}
+      #如需取消水印，内容设置为空即可，例：watermark.txt = ${WATERMARK_TXT:}
+      WATERMARK_TXT:
+      # 预览文件存储路径，当有大量文件要预览时需要保证该目录所在磁盘有足够的容量. 默认值：程序根目录下的file目录下
+      KK_FILE_DIR: default
+        # 缓存实现方式，默认为内嵌RocksDB实现，可选项：'default', 'jdk', 'redis'      #
+        # default：默认实现，使用RocksDB存储引擎，使用磁盘存储，会占用少量磁盘空间；Windows下需要使用管理员身份启动程序
+        # jdk：java对象实现，使用纯内存对象存储，速度极快，外部依赖最少，调试部署方便，会占用内存，推荐调试时和预览文件量不是很大时（<50万）使用，预览文件量极大或有大量压缩包时不推荐使用
+      # redis: redis作为缓存实现，速度快，不占用内存和磁盘空间，但是需要有外部redis服务  , 多节点情况下，未测试，感觉会有冲突问题。
+      KK_CACHE_TYPE: default
+
+    volumes:
+      # - ./platform-preview:/application/application.yml
+      - ./logs:/application/logs
+
+
